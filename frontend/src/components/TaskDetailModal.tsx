@@ -124,7 +124,7 @@ export function TaskDetailModal({
           <label className="block text-sm font-medium text-espresso">Descrição</label>
           <textarea
             {...register('description')}
-            className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso placeholder:text-espresso-faint focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta resize-none"
+            className="w-full px-3.5 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso placeholder:text-espresso-faint focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta resize-none"
             rows={3}
           />
         </div>
@@ -134,7 +134,7 @@ export function TaskDetailModal({
             <label className="block text-sm font-medium text-espresso">Status</label>
             <select
               {...register('status')}
-              className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
+              className="w-full px-3.5 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
             >
               <option value="TODO">A fazer</option>
               <option value="IN_PROGRESS">Em progresso</option>
@@ -145,7 +145,7 @@ export function TaskDetailModal({
             <label className="block text-sm font-medium text-espresso">Prioridade</label>
             <select
               {...register('priority')}
-              className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
+              className="w-full px-3.5 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
             >
               <option value="LOW">Baixa</option>
               <option value="MEDIUM">Média</option>
@@ -165,7 +165,7 @@ export function TaskDetailModal({
             <input
               type="date"
               {...register('dueDate')}
-              className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
+              className="w-full px-3.5 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
             />
           </div>
         </div>

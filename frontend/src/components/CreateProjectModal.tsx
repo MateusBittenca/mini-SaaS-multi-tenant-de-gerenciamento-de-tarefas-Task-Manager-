@@ -57,7 +57,7 @@ export function CreateProjectModal({ isOpen, onClose, onSubmit }: CreateProjectM
           <label className="block text-sm font-medium text-espresso">Descrição</label>
           <textarea
             {...register('description')}
-            className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso placeholder:text-espresso-faint focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta hover:border-espresso-faint transition-colors resize-none"
+            className="w-full px-3.5 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso placeholder:text-espresso-faint focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta hover:border-espresso-faint transition-colors resize-none"
             rows={3}
             placeholder="Opcional — descreva o objetivo do projeto"
           />

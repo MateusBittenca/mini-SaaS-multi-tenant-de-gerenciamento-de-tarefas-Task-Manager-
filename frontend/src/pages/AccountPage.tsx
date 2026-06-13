@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { User } from 'lucide-react';
+import { Moon, Sun, User } from 'lucide-react';
 import api, { getErrorMessage } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
+import { useThemeStore } from '../stores/themeStore';
 import { Input } from '../components/Input';
 import { Button } from '../components/Button';
 import { Alert } from '../components/Alert';
@@ -29,6 +30,8 @@ type FormData = z.infer<typeof schema>;
 export function AccountPage() {
   const user = useAuthStore((s) => s.user);
   const setUser = useAuthStore((s) => s.setUser);
+  const theme = useThemeStore((s) => s.theme);
+  const setTheme = useThemeStore((s) => s.setTheme);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -89,7 +92,37 @@ export function AccountPage() {
       {error && <Alert className="mb-4">{error}</Alert>}
       {success && <Alert variant="success" className="mb-4">{success}</Alert>}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 bg-white border border-sand rounded-2xl p-6">
+      <div className="mb-6 bg-surface border border-sand rounded-2xl p-6">
+        <p className="text-sm font-medium text-espresso mb-3">Aparência</p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => setTheme('light')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+              theme === 'light'
+                ? 'bg-terracotta-light border-terracotta text-terracotta'
+                : 'bg-cream-dark border-sand text-espresso-muted hover:border-terracotta/40'
+            }`}
+          >
+            <Sun className="w-4 h-4" />
+            Claro
+          </button>
+          <button
+            type="button"
+            onClick={() => setTheme('dark')}
+            className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium border transition-colors ${
+              theme === 'dark'
+                ? 'bg-terracotta-light border-terracotta text-terracotta'
+                : 'bg-cream-dark border-sand text-espresso-muted hover:border-terracotta/40'
+            }`}
+          >
+            <Moon className="w-4 h-4" />
+            Escuro
+          </button>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5 bg-surface border border-sand rounded-2xl p-6">
         <Input label="Nome" {...register('name')} error={errors.name?.message} />
         <Input label="Email" value={user?.email ?? ''} disabled />
         <div className="pt-2 border-t border-sand">

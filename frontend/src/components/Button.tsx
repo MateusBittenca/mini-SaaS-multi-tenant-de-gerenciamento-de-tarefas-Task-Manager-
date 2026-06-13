@@ -10,7 +10,7 @@ const variants = {
   primary:
     'bg-terracotta text-white hover:bg-terracotta-hover shadow-sm active:scale-[0.98]',
   secondary:
-    'bg-white text-espresso border border-sand hover:bg-cream-dark hover:border-espresso-faint',
+    'bg-surface text-espresso border border-sand hover:bg-cream-dark hover:border-espresso-faint',
   ghost:
     'text-espresso-muted hover:text-espresso hover:bg-cream-dark',
   danger:

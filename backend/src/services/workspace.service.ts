@@ -415,3 +415,83 @@ export async function transferOwnership(
     newOwnerName: newOwner.user.name,
   };
 }
+
+export async function getWorkspaceOverview(workspaceId: string) {
+  const projects = await prisma.project.findMany({
+    where: { workspaceId },
+    select: {
+      id: true,
+      name: true,
+      _count: { select: { tasks: true } },
+    },
+  });
+
+  const tasks = await prisma.task.findMany({
+    where: { project: { workspaceId } },
+    select: {
+      id: true,
+      title: true,
+      status: true,
+      dueDate: true,
+      assigneeId: true,
+      assignee: { select: { id: true, name: true } },
+      project: { select: { id: true, name: true } },
+    },
+  });
+
+  const tasksByStatus = { TODO: 0, IN_PROGRESS: 0, DONE: 0 };
+  for (const task of tasks) {
+    tasksByStatus[task.status]++;
+  }
+
+  const memberMap = new Map<string, { userId: string; name: string; count: number }>();
+  for (const task of tasks) {
+    if (!task.assigneeId || !task.assignee) continue;
+    const existing = memberMap.get(task.assigneeId);
+    if (existing) {
+      existing.count++;
+    } else {
+      memberMap.set(task.assigneeId, {
+        userId: task.assigneeId,
+        name: task.assignee.name,
+        count: 1,
+      });
+    }
+  }
+
+  const topProjects = projects
+    .map((p) => ({ id: p.id, name: p.name, taskCount: p._count.tasks }))
+    .sort((a, b) => b.taskCount - a.taskCount)
+    .slice(0, 5);
+
+  const now = new Date();
+  now.setHours(0, 0, 0, 0);
+  const in7Days = new Date(now);
+  in7Days.setDate(in7Days.getDate() + 7);
+
+  const dueSoon = tasks
+    .filter((task) => {
+      if (!task.dueDate || task.status === 'DONE') return false;
+      const due = new Date(task.dueDate);
+      due.setHours(0, 0, 0, 0);
+      return due >= now && due <= in7Days;
+    })
+    .map((task) => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      dueDate: task.dueDate,
+      project: task.project,
+      assignee: task.assignee,
+    }))
+    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+
+  return {
+    totalTasks: tasks.length,
+    totalProjects: projects.length,
+    tasksByStatus,
+    tasksByMember: Array.from(memberMap.values()).sort((a, b) => b.count - a.count),
+    topProjects,
+    dueSoon,
+  };
+}

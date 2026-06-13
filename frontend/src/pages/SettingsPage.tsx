@@ -191,7 +191,7 @@ export function SettingsPage() {
       {isOwner && (
         <form
           onSubmit={handleUpdateWorkspace}
-          className="mb-8 p-5 bg-white border border-sand rounded-2xl space-y-4"
+          className="mb-8 p-5 bg-surface border border-sand rounded-2xl space-y-4"
         >
           <div className="flex items-center gap-2">
             <Building2 className="w-4 h-4 text-terracotta" />

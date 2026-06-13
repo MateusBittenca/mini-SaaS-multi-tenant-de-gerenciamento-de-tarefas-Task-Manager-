@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { FolderPlus, Plus } from 'lucide-react';
 import api, { getErrorMessage } from '../lib/api';
@@ -10,6 +10,7 @@ import { Button } from '../components/Button';
 import { Alert } from '../components/Alert';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { EmptyState } from '../components/EmptyState';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 
 export function DashboardPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -19,6 +20,9 @@ export function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+
+  const openCreate = useCallback(() => setShowCreate(true), []);
+  useKeyboardShortcuts([{ key: 'n', handler: openCreate, enabled: !showCreate }]);
 
   const workspace = getActiveWorkspace();
   const canDelete = workspace?.role === 'OWNER' || workspace?.role === 'ADMIN';
@@ -76,7 +80,7 @@ export function DashboardPage() {
               : 'Organize o trabalho em projetos com boards Kanban'}
           </p>
         </div>
-        <Button onClick={() => setShowCreate(true)} className="shrink-0">
+        <Button onClick={openCreate} className="shrink-0">
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">Novo projeto</span>
           <span className="sm:hidden">Novo</span>

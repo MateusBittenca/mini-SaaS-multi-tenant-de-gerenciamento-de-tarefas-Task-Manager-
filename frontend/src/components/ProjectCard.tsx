@@ -14,7 +14,7 @@ export function ProjectCard({ project, workspaceId, onDelete, canDelete }: Proje
 
   return (
     <div
-      className="group relative bg-white border border-sand rounded-2xl p-6 transition-all hover:border-terracotta/25 hover:-translate-y-0.5"
+      className="group relative bg-surface border border-sand rounded-2xl p-6 transition-all hover:border-terracotta/25 hover:-translate-y-0.5"
       style={{ boxShadow: 'var(--shadow-card)' }}
       onMouseEnter={(e) => {
         (e.currentTarget as HTMLElement).style.boxShadow = 'var(--shadow-card-hover)';

@@ -22,7 +22,7 @@ export function PendingInvitesList({
 
   return (
     <div
-      className="bg-white border border-sand rounded-2xl overflow-hidden mt-6"
+      className="bg-surface border border-sand rounded-2xl overflow-hidden mt-6"
       style={{ boxShadow: 'var(--shadow-card)' }}
     >
       <div className="px-5 py-4 border-b border-sand">

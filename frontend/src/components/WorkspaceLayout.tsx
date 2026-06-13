@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
+  BarChart3,
   FolderKanban,
   LayoutGrid,
   ListTodo,
@@ -47,6 +48,12 @@ export function WorkspaceLayout() {
 
   const navItems = [
     {
+      to: `/w/${workspaceId}/overview`,
+      label: 'Visão geral',
+      icon: BarChart3,
+      active: location.pathname.includes('/overview'),
+    },
+    {
       to: `/w/${workspaceId}`,
       label: 'Projetos',
       icon: LayoutGrid,
@@ -91,15 +98,17 @@ export function WorkspaceLayout() {
     .toUpperCase();
 
   const breadcrumb =
-    location.pathname.includes('/projects/')
-      ? 'Board'
-      : location.pathname.includes('/tasks')
-        ? 'Minhas tarefas'
-        : location.pathname.includes('/settings')
-          ? 'Equipe'
-          : location.pathname.includes('/account')
-            ? 'Minha conta'
-            : 'Projetos';
+    location.pathname.includes('/overview')
+      ? 'Visão geral'
+      : location.pathname.includes('/projects/')
+        ? 'Board'
+        : location.pathname.includes('/tasks')
+          ? 'Minhas tarefas'
+          : location.pathname.includes('/settings')
+            ? 'Equipe'
+            : location.pathname.includes('/account')
+              ? 'Minha conta'
+              : 'Projetos';
 
   return (
     <div className="min-h-screen flex bg-cream">

@@ -21,7 +21,7 @@ function TaskRow({ task, workspaceId }: { task: Task; workspaceId: string }) {
   return (
     <Link
       to={`/w/${workspaceId}/projects/${task.projectId}`}
-      className="flex items-center gap-4 p-4 bg-white border border-sand rounded-xl hover:border-terracotta/25 transition-colors group"
+      className="flex items-center gap-4 p-4 bg-surface border border-sand rounded-xl hover:border-terracotta/25 transition-colors group"
     >
       <StatusIcon className={`w-4 h-4 shrink-0 ${statusConfig[task.status].className}`} />
       <div className="flex-1 min-w-0">

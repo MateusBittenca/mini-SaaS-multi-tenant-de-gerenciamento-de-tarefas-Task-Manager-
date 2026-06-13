@@ -45,7 +45,7 @@ export function TaskCard({ task, onDelete, onClick, canDelete, isOverlay }: Task
           onClick(task);
         }
       }}
-      className={`bg-white rounded-xl border p-3.5 ${
+      className={`bg-surface rounded-xl border p-3.5 ${
         isOverlay
           ? 'border-terracotta/50 shadow-card-hover rotate-1'
           : `border-sand hover:border-espresso-faint transition-shadow ${onClick ? 'cursor-pointer' : ''}`

@@ -43,7 +43,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         role="dialog"
         aria-modal
         aria-labelledby="modal-title"
-        className={`relative flex max-h-[min(90dvh,900px)] w-full flex-col ${sizeClasses[size]} animate-modal-panel rounded-2xl bg-white shadow-[var(--shadow-modal)]`}
+        className={`relative flex max-h-[min(90dvh,900px)] w-full flex-col ${sizeClasses[size]} animate-modal-panel rounded-2xl bg-surface shadow-[var(--shadow-modal)]`}
       >
         <div className="flex shrink-0 items-start justify-between border-b border-sand/80 px-6 py-5">
           <h2 id="modal-title" className="pr-4 text-xl font-display font-semibold text-espresso">

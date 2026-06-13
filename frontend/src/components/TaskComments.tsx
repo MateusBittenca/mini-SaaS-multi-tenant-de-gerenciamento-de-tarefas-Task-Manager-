@@ -110,7 +110,7 @@ export function TaskComments({ taskId, currentUserId, canManage }: TaskCommentsP
           onChange={(e) => setContent(e.target.value)}
           rows={2}
           placeholder="Escreva um comentário..."
-          className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso placeholder:text-espresso-faint focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta resize-none"
+          className="w-full px-3.5 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso placeholder:text-espresso-faint focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta resize-none"
         />
         {error && <p className="text-xs text-danger">{error}</p>}
         <div className="flex justify-end">

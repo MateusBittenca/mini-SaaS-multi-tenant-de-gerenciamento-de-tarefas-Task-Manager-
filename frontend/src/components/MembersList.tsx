@@ -48,7 +48,7 @@ export function MembersList({
 
   return (
     <div
-      className="bg-white border border-sand rounded-2xl overflow-hidden"
+      className="bg-surface border border-sand rounded-2xl overflow-hidden"
       style={{ boxShadow: 'var(--shadow-card)' }}
     >
       <div className="px-5 py-4 border-b border-sand">
@@ -95,7 +95,7 @@ export function MembersList({
                     value={member.role}
                     disabled={loading}
                     onChange={(e) => onUpdateRole(member.id, e.target.value as Role)}
-                    className="text-xs border border-sand rounded-lg px-2 py-1.5 bg-white text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+                    className="text-xs border border-sand rounded-lg px-2 py-1.5 bg-surface text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30"
                   >
                     <option value="ADMIN">Administrador</option>
                     <option value="MEMBER">Membro</option>

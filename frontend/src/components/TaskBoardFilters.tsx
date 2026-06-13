@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { Search, X } from 'lucide-react';
 import type { Task, WorkspaceMember } from '../lib/types';
 
@@ -16,8 +16,18 @@ interface TaskBoardFiltersProps {
   onChange: (filters: TaskFilters) => void;
 }
 
-export function TaskBoardFilters({ tasks, members, filters, onChange }: TaskBoardFiltersProps) {
+export interface TaskBoardFiltersHandle {
+  focusSearch: () => void;
+}
+
+export const TaskBoardFilters = forwardRef<TaskBoardFiltersHandle, TaskBoardFiltersProps>(
+  function TaskBoardFilters({ tasks, members, filters, onChange }, ref) {
+  const searchRef = useRef<HTMLInputElement>(null);
   const [searchInput, setSearchInput] = useState(filters.search);
+
+  useImperativeHandle(ref, () => ({
+    focusSearch: () => searchRef.current?.focus(),
+  }));
 
   useEffect(() => {
     const t = setTimeout(() => {
@@ -44,17 +54,18 @@ export function TaskBoardFilters({ tasks, members, filters, onChange }: TaskBoar
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-espresso-faint" />
           <input
+            ref={searchRef}
             type="text"
             value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             placeholder="Buscar tarefas..."
-            className="w-full pl-9 pr-3 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso placeholder:text-espresso-faint focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
+            className="w-full pl-9 pr-3 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso placeholder:text-espresso-faint focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
           />
         </div>
         <select
           value={filters.assigneeId}
           onChange={(e) => onChange({ ...filters, assigneeId: e.target.value })}
-          className="px-3 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+          className="px-3 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30"
         >
           <option value="">Todos responsáveis</option>
           {members.map((m) => (
@@ -66,7 +77,7 @@ export function TaskBoardFilters({ tasks, members, filters, onChange }: TaskBoar
         <select
           value={filters.priority}
           onChange={(e) => onChange({ ...filters, priority: e.target.value })}
-          className="px-3 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+          className="px-3 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30"
         >
           <option value="">Todas prioridades</option>
           <option value="LOW">Baixa</option>
@@ -76,7 +87,7 @@ export function TaskBoardFilters({ tasks, members, filters, onChange }: TaskBoar
         <select
           value={filters.status}
           onChange={(e) => onChange({ ...filters, status: e.target.value })}
-          className="px-3 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+          className="px-3 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30"
         >
           <option value="">Todos status</option>
           <option value="TODO">A fazer</option>
@@ -101,7 +112,7 @@ export function TaskBoardFilters({ tasks, members, filters, onChange }: TaskBoar
       </div>
     </div>
   );
-}
+});
 
 export function applyFilters(tasks: Task[], filters: TaskFilters): Task[] {
   const q = filters.search.trim().toLowerCase();

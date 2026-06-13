@@ -59,7 +59,7 @@ export function InviteMemberForm({ onSubmit }: InviteMemberFormProps) {
 
   return (
     <div
-      className="bg-white border border-sand rounded-2xl p-6"
+      className="bg-surface border border-sand rounded-2xl p-6"
       style={{ boxShadow: 'var(--shadow-card)' }}
     >
       <div className="flex items-center gap-3 mb-5">
@@ -84,7 +84,7 @@ export function InviteMemberForm({ onSubmit }: InviteMemberFormProps) {
           <label className="block text-sm font-medium text-espresso">Função</label>
           <select
             {...register('role')}
-            className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
+            className="w-full px-3.5 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
           >
             <option value="MEMBER">Membro</option>
             <option value="ADMIN">Administrador</option>
@@ -94,7 +94,7 @@ export function InviteMemberForm({ onSubmit }: InviteMemberFormProps) {
         {inviteLink && (
           <Alert variant="success">
             <p className="mb-2">Convite criado! Compartilhe o link:</p>
-            <div className="flex items-center gap-2 bg-white/60 rounded-lg p-2 border border-sage/20">
+            <div className="flex items-center gap-2 bg-surface/60 rounded-lg p-2 border border-sage/20">
               <code className="text-xs text-espresso break-all flex-1">{inviteLink}</code>
               <button
                 type="button"

@@ -56,7 +56,7 @@ export function KanbanColumn({ config, tasks, onDeleteTask, onTaskClick, canDele
           </span>
         </div>
         {/* Progress bar */}
-        <div className="mt-3 h-1 rounded-full bg-white/60 overflow-hidden">
+        <div className="mt-3 h-1 rounded-full bg-surface/60 overflow-hidden">
           <div
             className="h-full rounded-full transition-all duration-500"
             style={{
@@ -74,7 +74,7 @@ export function KanbanColumn({ config, tasks, onDeleteTask, onTaskClick, canDele
           {tasks.length === 0 ? (
             <div
               className={`flex flex-col items-center justify-center py-10 rounded-xl border-2 border-dashed transition-colors ${
-                isOver ? 'border-terracotta/40 bg-white/60' : 'border-espresso-faint/20'
+                isOver ? 'border-terracotta/40 bg-surface/60' : 'border-espresso-faint/20'
               }`}
             >
               <div

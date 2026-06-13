@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Circle, Loader, CheckCircle2, Pencil, Search } from 'lucide-react';
 import api, { getErrorMessage } from '../lib/api';
@@ -8,7 +8,8 @@ import type { Project, Task, TaskStatus, WorkspaceMember } from '../lib/types';
 import { KanbanBoard } from '../components/KanbanBoard';
 import { CreateTaskModal } from '../components/CreateTaskModal';
 import { TaskDetailModal } from '../components/TaskDetailModal';
-import { TaskBoardFilters, applyFilters, type TaskFilters } from '../components/TaskBoardFilters';
+import { TaskBoardFilters, applyFilters, type TaskFilters, type TaskBoardFiltersHandle } from '../components/TaskBoardFilters';
+import { useKeyboardShortcuts } from '../hooks/useKeyboardShortcuts';
 import { EditProjectModal } from '../components/EditProjectModal';
 import { Button } from '../components/Button';
 import { Alert } from '../components/Alert';
@@ -41,6 +42,15 @@ export function ProjectPage() {
   const [showEditProject, setShowEditProject] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filters, setFilters] = useState<TaskFilters>(defaultFilters);
+  const filtersRef = useRef<TaskBoardFiltersHandle>(null);
+
+  const openCreate = useCallback(() => setShowCreate(true), []);
+  const focusSearch = useCallback(() => filtersRef.current?.focusSearch(), []);
+
+  useKeyboardShortcuts([
+    { key: 'n', handler: openCreate, enabled: !showCreate && !selectedTask && !showEditProject },
+    { key: '/', handler: focusSearch },
+  ]);
 
   const workspace = getActiveWorkspace();
   const canDelete = workspace?.role === 'OWNER' || workspace?.role === 'ADMIN';
@@ -203,9 +213,12 @@ export function ProjectPage() {
             </div>
           </div>
 
-          <Button onClick={() => setShowCreate(true)} className="shrink-0">
+          <Button onClick={openCreate} className="shrink-0">
             <Plus className="w-4 h-4" />
             Nova tarefa
+            <kbd className="hidden sm:inline ml-1.5 text-[10px] font-normal opacity-60 border border-current rounded px-1">
+              N
+            </kbd>
           </Button>
         </div>
       </div>
@@ -213,6 +226,7 @@ export function ProjectPage() {
       {error && <Alert className="mb-6">{error}</Alert>}
 
       <TaskBoardFilters
+        ref={filtersRef}
         tasks={tasks}
         members={members}
         filters={filters}

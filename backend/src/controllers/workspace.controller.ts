@@ -157,3 +157,13 @@ export async function updateWorkspace(req: Request, res: Response, next: NextFun
     next(error);
   }
 }
+
+export async function getOverview(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const data = await workspaceService.getWorkspaceOverview(wsReq.workspaceMember.workspaceId);
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}

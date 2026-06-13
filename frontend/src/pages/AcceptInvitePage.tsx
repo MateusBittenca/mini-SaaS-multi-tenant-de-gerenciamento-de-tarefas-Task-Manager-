@@ -65,7 +65,7 @@ export function AcceptInvitePage() {
       </div>
 
       <div
-        className="w-full max-w-md bg-white border border-sand rounded-2xl p-8 text-center animate-fade-in"
+        className="w-full max-w-md bg-surface border border-sand rounded-2xl p-8 text-center animate-fade-in"
         style={{ boxShadow: 'var(--shadow-card)' }}
       >
         {loading ? (

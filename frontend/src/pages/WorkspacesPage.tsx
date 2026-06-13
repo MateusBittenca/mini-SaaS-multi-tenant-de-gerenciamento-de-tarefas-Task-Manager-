@@ -129,7 +129,7 @@ export function WorkspacesPage() {
               <button
                 key={ws.id}
                 onClick={() => selectWorkspace(ws)}
-                className="group w-full flex items-center gap-4 bg-white border border-sand rounded-2xl p-5 text-left transition-all hover:border-terracotta/30 hover:shadow-card-hover"
+                className="group w-full flex items-center gap-4 bg-surface border border-sand rounded-2xl p-5 text-left transition-all hover:border-terracotta/30 hover:shadow-card-hover"
                 style={{ boxShadow: 'var(--shadow-card)' }}
               >
                 <div className="w-11 h-11 rounded-xl bg-cream-dark border border-sand flex items-center justify-center shrink-0 group-hover:bg-terracotta-light group-hover:border-terracotta/20 transition-colors">

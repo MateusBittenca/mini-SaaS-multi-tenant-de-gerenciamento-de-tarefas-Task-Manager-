@@ -22,6 +22,7 @@
   --color-amber-light: #f0f3f7;
   --color-danger: #b83c3c;
   --color-danger-light: #fdf0f0;
+  --color-surface: #ffffff;
 
   --radius-sm: 0.5rem;
   --radius-md: 0.75rem;
@@ -39,6 +40,28 @@ body {
   color: var(--color-espresso);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.dark {
+  --color-cream: #141922;
+  --color-cream-dark: #1a2030;
+  --color-espresso: #e8ecf2;
+  --color-espresso-muted: #9aa5b8;
+  --color-espresso-faint: #6b7a92;
+  --color-sand: #2a3344;
+  --color-sand-light: #222a3a;
+  --color-terracotta-light: #1e2a3d;
+  --color-sage-light: #1a2520;
+  --color-amber-light: #1a2230;
+  --color-danger-light: #2d1a1a;
+  --color-surface: #1e2433;
+  --color-sidebar: #1a2230;
+  --color-sidebar-hover: #243044;
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.2), 0 4px 16px rgba(0, 0, 0, 0.25);
+  --shadow-card-hover: 0 4px 8px rgba(0, 0, 0, 0.25), 0 12px 32px rgba(0, 0, 0, 0.35);
+  --shadow-modal: 0 24px 64px rgba(0, 0, 0, 0.45);
+  color-scheme: dark;
 }
 
 h1, h2, h3, h4 {

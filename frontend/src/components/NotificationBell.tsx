@@ -83,7 +83,7 @@ export function NotificationBell({ variant = 'light' }: NotificationBellProps) {
 
       {open && (
         <div
-          className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-white border border-sand rounded-2xl z-50 animate-fade-in overflow-hidden"
+          className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-surface border border-sand rounded-2xl z-50 animate-fade-in overflow-hidden"
           style={{ boxShadow: 'var(--shadow-modal)' }}
         >
           <div className="px-4 py-3 border-b border-sand">

@@ -44,6 +44,13 @@ router.post(
 );
 
 router.get(
+  '/:id/overview',
+  validate({ params: workspaceIdParamSchema }),
+  workspaceMiddleware,
+  workspaceController.getOverview
+);
+
+router.get(
   '/:id/members',
   validate({ params: workspaceIdParamSchema }),
   workspaceMiddleware,

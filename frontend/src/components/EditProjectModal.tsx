@@ -58,7 +58,7 @@ export function EditProjectModal({ project, isOpen, onClose, onSubmit }: EditPro
           <label className="block text-sm font-medium text-espresso">Descrição</label>
           <textarea
             {...register('description')}
-            className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 resize-none"
+            className="w-full px-3.5 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 resize-none"
             rows={3}
           />
         </div>

@@ -136,6 +136,22 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+export interface WorkspaceOverview {
+  totalTasks: number;
+  totalProjects: number;
+  tasksByStatus: Record<TaskStatus, number>;
+  tasksByMember: { userId: string; name: string; count: number }[];
+  topProjects: { id: string; name: string; taskCount: number }[];
+  dueSoon: {
+    id: string;
+    title: string;
+    status: TaskStatus;
+    dueDate: string;
+    project: { id: string; name: string };
+    assignee: { id: string; name: string } | null;
+  }[];
+}
+
 export interface ApiError {
   error: {
     message: string;
