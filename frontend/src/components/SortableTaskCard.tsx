@@ -16,18 +16,17 @@ export function SortableTaskCard({ task, onDelete, canDelete }: SortableTaskCard
   const style = {
     transform: CSS.Transform.toString(transform),
     transition,
-    opacity: isDragging ? 0.4 : 1,
-    zIndex: isDragging ? 50 : undefined,
   };
 
   return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="group cursor-grab active:cursor-grabbing">
-      <TaskCard
-        task={task}
-        onDelete={onDelete}
-        canDelete={canDelete}
-        isDragging={isDragging}
-      />
+    <div
+      ref={setNodeRef}
+      style={style}
+      {...attributes}
+      {...listeners}
+      className={`group touch-none ${isDragging ? 'opacity-0' : 'opacity-100'}`}
+    >
+      <TaskCard task={task} onDelete={onDelete} canDelete={canDelete} />
     </div>
   );
 }

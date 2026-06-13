@@ -22,10 +22,10 @@ interface TaskCardProps {
   task: Task;
   onDelete?: (id: string) => void;
   canDelete?: boolean;
-  isDragging?: boolean;
+  isOverlay?: boolean;
 }
 
-export function TaskCard({ task, onDelete, canDelete, isDragging }: TaskCardProps) {
+export function TaskCard({ task, onDelete, canDelete, isOverlay }: TaskCardProps) {
   const priority = priorityConfig[task.priority];
   const PriorityIcon = priority.icon;
 
@@ -35,12 +35,12 @@ export function TaskCard({ task, onDelete, canDelete, isDragging }: TaskCardProp
 
   return (
     <div
-      className={`bg-white rounded-xl border p-3.5 transition-shadow ${
-        isDragging
-          ? 'border-terracotta/40 shadow-card-hover rotate-1 scale-[1.02]'
-          : 'border-sand hover:border-espresso-faint'
+      className={`bg-white rounded-xl border p-3.5 ${
+        isOverlay
+          ? 'border-terracotta/50 shadow-card-hover rotate-1'
+          : 'border-sand hover:border-espresso-faint transition-shadow'
       }`}
-      style={{ boxShadow: isDragging ? 'var(--shadow-card-hover)' : 'var(--shadow-card)' }}
+      style={{ boxShadow: isOverlay ? 'var(--shadow-card-hover)' : 'var(--shadow-card)' }}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
         <div className="flex items-center gap-1.5">
