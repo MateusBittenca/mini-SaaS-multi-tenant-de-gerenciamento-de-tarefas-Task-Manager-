@@ -1,4 +1,5 @@
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
 interface ModalProps {
@@ -21,19 +22,20 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
     if (!isOpen) return;
     const handleEsc = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
     document.addEventListener('keydown', handleEsc);
+    const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     return () => {
       document.removeEventListener('keydown', handleEsc);
-      document.body.style.overflow = '';
+      document.body.style.overflow = prevOverflow;
     };
   }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
       <div
-        className="absolute inset-0 bg-espresso/40 backdrop-blur-sm animate-fade-in"
+        className="absolute inset-0 bg-espresso/50 backdrop-blur-[2px] animate-modal-backdrop"
         onClick={onClose}
         aria-hidden
       />
@@ -41,23 +43,23 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
         role="dialog"
         aria-modal
         aria-labelledby="modal-title"
-        className={`relative bg-white rounded-2xl w-full ${sizeClasses[size]} mx-auto p-6 animate-fade-in`}
-        style={{ boxShadow: 'var(--shadow-modal)' }}
+        className={`relative flex max-h-[min(90dvh,900px)] w-full flex-col ${sizeClasses[size]} animate-modal-panel rounded-2xl bg-white shadow-[var(--shadow-modal)]`}
       >
-        <div className="flex items-start justify-between mb-5">
-          <h2 id="modal-title" className="text-xl font-display font-semibold text-espresso">
+        <div className="flex shrink-0 items-start justify-between border-b border-sand/80 px-6 py-5">
+          <h2 id="modal-title" className="pr-4 text-xl font-display font-semibold text-espresso">
             {title}
           </h2>
           <button
             onClick={onClose}
-            className="p-1.5 -mr-1.5 -mt-1 rounded-lg text-espresso-faint hover:text-espresso hover:bg-cream-dark transition-colors"
+            className="-mr-1 -mt-1 rounded-lg p-1.5 text-espresso-faint transition-colors hover:bg-cream-dark hover:text-espresso"
             aria-label="Fechar"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
-        {children}
+        <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">{children}</div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
