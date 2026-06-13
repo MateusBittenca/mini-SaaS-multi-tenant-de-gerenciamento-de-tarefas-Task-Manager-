@@ -105,20 +105,20 @@ export function WorkspaceLayout() {
     <div className="min-h-screen flex bg-cream">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 bg-espresso/30 z-40 lg:hidden"
+          className="fixed inset-0 bg-sidebar/40 z-40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 bg-espresso text-white flex flex-col transition-transform duration-200 lg:translate-x-0 ${
+        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 bg-sidebar text-white flex flex-col transition-transform duration-200 lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
-        <div className="p-5 border-b border-white/10">
+        <div className="p-5 border-b border-white/8">
           <div className="flex items-center justify-between">
             <Link to="/workspaces" className="flex items-center gap-2.5 group">
-              <div className="w-8 h-8 rounded-lg bg-terracotta flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
                 <svg viewBox="0 0 24 24" className="w-4 h-4" fill="none">
                   <path d="M5 8h14M5 12h10M5 16h14" stroke="white" strokeWidth="2" strokeLinecap="round" />
                   <circle cx="18" cy="12" r="1.5" fill="#5A7A6A" />
@@ -138,10 +138,10 @@ export function WorkspaceLayout() {
         </div>
 
         {workspace && (
-          <div className="px-4 py-4 border-b border-white/10">
+          <div className="px-4 py-4 border-b border-white/8">
             <p className="text-[10px] uppercase tracking-widest text-white/40 mb-1">Workspace</p>
             <p className="font-display font-semibold text-white truncate">{workspace.name}</p>
-            <span className="inline-block mt-1.5 text-[11px] px-2 py-0.5 rounded-full bg-white/10 text-white/70">
+            <span className="inline-block mt-1.5 text-[11px] px-2 py-0.5 rounded-full bg-terracotta/20 text-terracotta-light">
               {roleLabel}
             </span>
           </div>
@@ -156,7 +156,7 @@ export function WorkspaceLayout() {
               className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${
                 active
                   ? 'bg-terracotta text-white'
-                  : 'text-white/60 hover:text-white hover:bg-white/8'
+                  : 'text-white/55 hover:text-white hover:bg-sidebar-hover'
               }`}
             >
               <Icon className="w-4 h-4" strokeWidth={active ? 2 : 1.5} />
@@ -165,10 +165,10 @@ export function WorkspaceLayout() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-white/10">
+        <div className="p-4 border-t border-white/8">
           <Link
             to={`/w/${workspaceId}/account`}
-            className="flex items-center gap-3 mb-3 rounded-xl px-2 py-1.5 hover:bg-white/8 transition-colors"
+            className="flex items-center gap-3 mb-3 rounded-xl px-2 py-1.5 hover:bg-sidebar-hover transition-colors"
           >
             <div className="w-8 h-8 rounded-full bg-sage flex items-center justify-center text-xs font-semibold text-white shrink-0">
               {initials}
@@ -180,7 +180,7 @@ export function WorkspaceLayout() {
           </Link>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/8 transition-colors"
+            className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-sidebar-hover transition-colors"
           >
             <LogOut className="w-4 h-4" />
             Sair

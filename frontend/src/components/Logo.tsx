@@ -21,9 +21,9 @@ export function Logo({ size = 'md', linkTo, showTagline = false }: LogoProps) {
         className={`${s.icon} rounded-lg bg-espresso flex items-center justify-center shrink-0`}
         aria-hidden
       >
-        <svg viewBox="0 0 24 24" className="w-[55%] h-[55%]" fill="none">
-          <path d="M5 8h14M5 12h10M5 16h14" stroke="#C45C3E" strokeWidth="2" strokeLinecap="round" />
-          <circle cx="18" cy="12" r="1.5" fill="#5A7A6A" />
+        <svg viewBox="0 0 24 24" className="w-[55%] h-[55%] text-terracotta" fill="none">
+          <path d="M5 8h14M5 12h10M5 16h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          <circle cx="18" cy="12" r="1.5" className="fill-sage" />
         </svg>
       </div>
       <div>

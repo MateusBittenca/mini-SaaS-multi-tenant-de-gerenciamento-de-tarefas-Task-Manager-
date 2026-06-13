@@ -17,7 +17,7 @@ import { EmptyState } from '../components/EmptyState';
 
 const statusMeta: Record<TaskStatus, { label: string; icon: typeof Circle; color: string }> = {
   TODO: { label: 'A fazer', icon: Circle, color: '#6B5E54' },
-  IN_PROGRESS: { label: 'Em progresso', icon: Loader, color: '#D4924A' },
+  IN_PROGRESS: { label: 'Em progresso', icon: Loader, color: '#7A8FA8' },
   DONE: { label: 'Concluídas', icon: CheckCircle2, color: '#5A7A6A' },
 };
 

@@ -11,13 +11,15 @@
   --color-espresso-faint: #a89888;
   --color-sand: #e8dfd4;
   --color-sand-light: #f3ede4;
-  --color-terracotta: #c45c3e;
-  --color-terracotta-hover: #a84a30;
-  --color-terracotta-light: #fdf0ec;
+  --color-terracotta: #4a5f7f;
+  --color-terracotta-hover: #3a4d66;
+  --color-terracotta-light: #eef2f7;
+  --color-sidebar: #243044;
+  --color-sidebar-hover: #2e3d52;
   --color-sage: #5a7a6a;
   --color-sage-light: #f0f5f2;
-  --color-amber-warm: #d4924a;
-  --color-amber-light: #fdf6ec;
+  --color-amber-warm: #7a8fa8;
+  --color-amber-light: #f0f3f7;
   --color-danger: #b83c3c;
   --color-danger-light: #fdf0f0;
 

@@ -46,7 +46,7 @@ export function LoginPage() {
   return (
     <div className="min-h-screen flex">
       {/* Left panel — brand */}
-      <div className="hidden lg:flex lg:w-1/2 bg-espresso relative overflow-hidden flex-col justify-between p-12">
+      <div className="hidden lg:flex lg:w-1/2 bg-sidebar relative overflow-hidden flex-col justify-between p-12">
         <Logo size="md" />
         <div className="relative z-10">
           <blockquote className="font-display text-4xl font-semibold text-white leading-tight mb-6">

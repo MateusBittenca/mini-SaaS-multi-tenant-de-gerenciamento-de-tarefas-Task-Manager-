@@ -33,8 +33,8 @@ const COLUMNS: ColumnConfig[] = [
     icon: Loader,
     bg: 'bg-amber-light/60',
     headerBg: 'bg-amber-light',
-    accent: '#D4924A',
-    dot: '#D4924A',
+    accent: '#7A8FA8',
+    dot: '#7A8FA8',
   },
   {
     id: 'DONE',

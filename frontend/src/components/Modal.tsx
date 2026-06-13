@@ -35,7 +35,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md' }: ModalPr
   return createPortal(
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6">
       <div
-        className="absolute inset-0 bg-espresso/50 backdrop-blur-[2px] animate-modal-backdrop"
+        className="absolute inset-0 bg-sidebar/50 backdrop-blur-[2px] animate-modal-backdrop"
         onClick={onClose}
         aria-hidden
       />
