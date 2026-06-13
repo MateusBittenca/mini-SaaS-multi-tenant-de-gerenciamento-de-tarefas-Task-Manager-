@@ -3,9 +3,11 @@ import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router-
 import {
   FolderKanban,
   LayoutGrid,
+  ListTodo,
   LogOut,
   Menu,
   Settings,
+  User,
   X,
 } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
@@ -50,6 +52,12 @@ export function WorkspaceLayout() {
       icon: LayoutGrid,
       active: location.pathname === `/w/${workspaceId}`,
     },
+    {
+      to: `/w/${workspaceId}/tasks`,
+      label: 'Minhas tarefas',
+      icon: ListTodo,
+      active: location.pathname.includes('/tasks'),
+    },
     ...(canManage
       ? [
           {
@@ -60,6 +68,12 @@ export function WorkspaceLayout() {
           },
         ]
       : []),
+    {
+      to: `/w/${workspaceId}/account`,
+      label: 'Minha conta',
+      icon: User,
+      active: location.pathname.includes('/account'),
+    },
   ];
 
   const roleLabel =
@@ -76,9 +90,19 @@ export function WorkspaceLayout() {
     .join('')
     .toUpperCase();
 
+  const breadcrumb =
+    location.pathname.includes('/projects/')
+      ? 'Board'
+      : location.pathname.includes('/tasks')
+        ? 'Minhas tarefas'
+        : location.pathname.includes('/settings')
+          ? 'Equipe'
+          : location.pathname.includes('/account')
+            ? 'Minha conta'
+            : 'Projetos';
+
   return (
     <div className="min-h-screen flex bg-cream">
-      {/* Mobile overlay */}
       {sidebarOpen && (
         <div
           className="fixed inset-0 bg-espresso/30 z-40 lg:hidden"
@@ -86,7 +110,6 @@ export function WorkspaceLayout() {
         />
       )}
 
-      {/* Sidebar */}
       <aside
         className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-64 bg-espresso text-white flex flex-col transition-transform duration-200 lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
@@ -143,7 +166,10 @@ export function WorkspaceLayout() {
         </nav>
 
         <div className="p-4 border-t border-white/10">
-          <div className="flex items-center gap-3 mb-3">
+          <Link
+            to={`/w/${workspaceId}/account`}
+            className="flex items-center gap-3 mb-3 rounded-xl px-2 py-1.5 hover:bg-white/8 transition-colors"
+          >
             <div className="w-8 h-8 rounded-full bg-sage flex items-center justify-center text-xs font-semibold text-white shrink-0">
               {initials}
             </div>
@@ -151,7 +177,7 @@ export function WorkspaceLayout() {
               <p className="text-sm font-medium text-white truncate">{user?.name}</p>
               <p className="text-xs text-white/40 truncate">{user?.email}</p>
             </div>
-          </div>
+          </Link>
           <button
             onClick={handleLogout}
             className="flex items-center gap-2 w-full px-3 py-2 rounded-xl text-sm text-white/50 hover:text-white hover:bg-white/8 transition-colors"
@@ -162,7 +188,6 @@ export function WorkspaceLayout() {
         </div>
       </aside>
 
-      {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
         <header className="sticky top-0 z-30 bg-cream/80 backdrop-blur-md border-b border-sand px-4 lg:px-8 h-14 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4 min-w-0">
@@ -175,13 +200,7 @@ export function WorkspaceLayout() {
             <div className="flex items-center gap-2 text-espresso-muted text-sm min-w-0">
               <FolderKanban className="w-4 h-4 shrink-0" />
               <span className="hidden sm:inline text-espresso-faint">/</span>
-              <span className="font-medium text-espresso truncate">
-                {location.pathname.includes('/projects/')
-                  ? 'Board'
-                  : location.pathname.includes('/settings')
-                    ? 'Equipe'
-                    : 'Projetos'}
-              </span>
+              <span className="font-medium text-espresso truncate">{breadcrumb}</span>
             </div>
           </div>
           <NotificationBell />

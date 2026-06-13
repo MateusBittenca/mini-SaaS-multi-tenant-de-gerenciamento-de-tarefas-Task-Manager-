@@ -1,10 +1,12 @@
 import { Router } from 'express';
 import * as projectController from '../controllers/project.controller';
 import { authMiddleware } from '../middlewares/auth';
-import { workspaceMiddleware } from '../middlewares/workspace';
+import { workspaceMiddleware, requireMinRole } from '../middlewares/workspace';
 import { validate } from '../middlewares/validate';
+import { Role } from '@prisma/client';
 import {
   createProjectSchema,
+  updateProjectSchema,
   workspaceIdParamSchema,
   projectIdParamSchema,
 } from '../schemas/project.schema';
@@ -37,6 +39,14 @@ router.get(
   validate({ params: workspaceProjectParamsSchema }),
   workspaceMiddleware,
   projectController.getProject
+);
+
+router.patch(
+  '/projects/:id',
+  validate({ params: projectIdParamSchema, body: updateProjectSchema }),
+  workspaceMiddleware,
+  requireMinRole(Role.ADMIN),
+  projectController.updateProject
 );
 
 router.delete(

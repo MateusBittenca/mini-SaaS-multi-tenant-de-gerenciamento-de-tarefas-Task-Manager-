@@ -1,14 +1,19 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Circle, Loader, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Plus, Circle, Loader, CheckCircle2, Pencil, Search } from 'lucide-react';
 import api, { getErrorMessage } from '../lib/api';
+import { useAuthStore } from '../stores/authStore';
 import { useWorkspaceStore } from '../stores/workspaceStore';
-import type { Project, Task, TaskStatus } from '../lib/types';
+import type { Project, Task, TaskStatus, WorkspaceMember } from '../lib/types';
 import { KanbanBoard } from '../components/KanbanBoard';
 import { CreateTaskModal } from '../components/CreateTaskModal';
+import { TaskDetailModal } from '../components/TaskDetailModal';
+import { TaskBoardFilters, applyFilters, type TaskFilters } from '../components/TaskBoardFilters';
+import { EditProjectModal } from '../components/EditProjectModal';
 import { Button } from '../components/Button';
 import { Alert } from '../components/Alert';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
+import { EmptyState } from '../components/EmptyState';
 
 const statusMeta: Record<TaskStatus, { label: string; icon: typeof Circle; color: string }> = {
   TODO: { label: 'A fazer', icon: Circle, color: '#6B5E54' },
@@ -16,17 +21,30 @@ const statusMeta: Record<TaskStatus, { label: string; icon: typeof Circle; color
   DONE: { label: 'Concluídas', icon: CheckCircle2, color: '#5A7A6A' },
 };
 
+const defaultFilters: TaskFilters = {
+  search: '',
+  assigneeId: '',
+  priority: '',
+  status: '',
+};
+
 export function ProjectPage() {
   const { workspaceId, projectId } = useParams<{ workspaceId: string; projectId: string }>();
+  const user = useAuthStore((s) => s.user);
   const getActiveWorkspace = useWorkspaceStore((s) => s.getActiveWorkspace);
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [members, setMembers] = useState<WorkspaceMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [showEditProject, setShowEditProject] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [filters, setFilters] = useState<TaskFilters>(defaultFilters);
 
   const workspace = getActiveWorkspace();
   const canDelete = workspace?.role === 'OWNER' || workspace?.role === 'ADMIN';
+  const canManage = canDelete;
 
   useEffect(() => {
     if (projectId && workspaceId) {
@@ -37,18 +55,22 @@ export function ProjectPage() {
   const loadData = async () => {
     setLoading(true);
     try {
-      const [projectRes, tasksRes] = await Promise.all([
+      const [projectRes, tasksRes, membersRes] = await Promise.all([
         api.get<{ data: Project }>(`/workspaces/${workspaceId}/projects/${projectId}`),
         api.get<{ data: Task[] }>(`/projects/${projectId}/tasks`),
+        api.get<{ data: WorkspaceMember[] }>(`/workspaces/${workspaceId}/members`),
       ]);
       setProject(projectRes.data.data);
       setTasks(tasksRes.data.data);
+      setMembers(membersRes.data.data);
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
   };
+
+  const filteredTasks = useMemo(() => applyFilters(tasks, filters), [tasks, filters]);
 
   const handleStatusChange = async (taskId: string, status: TaskStatus) => {
     const previous = [...tasks];
@@ -62,19 +84,41 @@ export function ProjectPage() {
     }
   };
 
-  const handleCreate = async (data: { title: string; description?: string; priority?: string }) => {
+  const handleCreate = async (data: {
+    title: string;
+    description?: string;
+    priority?: string;
+    assigneeId?: string | null;
+    dueDate?: string | null;
+  }) => {
     const { data: res } = await api.post<{ data: Task }>(`/projects/${projectId}/tasks`, data);
     setTasks([...tasks, res.data]);
   };
 
+  const handleUpdate = async (id: string, data: Partial<Task>) => {
+    const { data: res } = await api.patch<{ data: Task }>(`/tasks/${id}`, data);
+    setTasks((prev) => prev.map((t) => (t.id === id ? res.data : t)));
+    setSelectedTask(res.data);
+  };
+
   const handleDelete = async (id: string) => {
+    await api.delete(`/tasks/${id}`);
+    setTasks(tasks.filter((t) => t.id !== id));
+    setSelectedTask(null);
+  };
+
+  const handleDeleteFromBoard = async (id: string) => {
     if (!confirm('Excluir esta tarefa?')) return;
     try {
-      await api.delete(`/tasks/${id}`);
-      setTasks(tasks.filter((t) => t.id !== id));
+      await handleDelete(id);
     } catch (err) {
       setError(getErrorMessage(err));
     }
+  };
+
+  const handleEditProject = async (data: { name: string; description?: string }) => {
+    const { data: res } = await api.patch<{ data: Project }>(`/projects/${projectId}`, data);
+    setProject(res.data);
   };
 
   const counts = {
@@ -106,7 +150,6 @@ export function ProjectPage() {
 
   return (
     <div className="animate-fade-in">
-      {/* Project header */}
       <div className="mb-8">
         <Link
           to={`/w/${workspaceId}`}
@@ -118,14 +161,24 @@ export function ProjectPage() {
 
         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
           <div>
-            <h1 className="font-display text-2xl lg:text-3xl font-semibold text-espresso">
-              {project.name}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="font-display text-2xl lg:text-3xl font-semibold text-espresso">
+                {project.name}
+              </h1>
+              {canManage && (
+                <button
+                  onClick={() => setShowEditProject(true)}
+                  className="p-1.5 rounded-lg text-espresso-faint hover:text-terracotta hover:bg-cream-dark transition-colors"
+                  aria-label="Editar projeto"
+                >
+                  <Pencil className="w-4 h-4" />
+                </button>
+              )}
+            </div>
             {project.description && (
               <p className="text-espresso-muted mt-1.5 text-sm max-w-xl">{project.description}</p>
             )}
 
-            {/* Stats row */}
             <div className="flex flex-wrap items-center gap-4 mt-4">
               {(Object.keys(statusMeta) as TaskStatus[]).map((status) => {
                 const meta = statusMeta[status];
@@ -159,17 +212,54 @@ export function ProjectPage() {
 
       {error && <Alert className="mb-6">{error}</Alert>}
 
-      <KanbanBoard
+      <TaskBoardFilters
         tasks={tasks}
-        onStatusChange={handleStatusChange}
-        onDeleteTask={handleDelete}
-        canDelete={canDelete}
+        members={members}
+        filters={filters}
+        onChange={setFilters}
       />
+
+      {filteredTasks.length === 0 && tasks.length > 0 ? (
+        <EmptyState
+          icon={Search}
+          title="Nenhuma tarefa encontrada"
+          description="Tente ajustar os filtros para ver mais resultados."
+          action={{ label: 'Limpar filtros', onClick: () => setFilters(defaultFilters) }}
+        />
+      ) : (
+        <KanbanBoard
+          tasks={filteredTasks}
+          onStatusChange={handleStatusChange}
+          onDeleteTask={handleDeleteFromBoard}
+          onTaskClick={setSelectedTask}
+          canDelete={canDelete}
+        />
+      )}
 
       <CreateTaskModal
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
+        members={members}
         onSubmit={handleCreate}
+      />
+
+      <TaskDetailModal
+        task={selectedTask}
+        members={members}
+        isOpen={!!selectedTask}
+        onClose={() => setSelectedTask(null)}
+        onSave={handleUpdate}
+        onDelete={canDelete ? handleDelete : undefined}
+        currentUserId={user?.id}
+        canDelete={canDelete}
+        canManage={canManage}
+      />
+
+      <EditProjectModal
+        project={project}
+        isOpen={showEditProject}
+        onClose={() => setShowEditProject(false)}
+        onSubmit={handleEditProject}
       />
     </div>
   );

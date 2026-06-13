@@ -3,7 +3,7 @@ import { Role } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { generateUniqueSlug } from '../lib/slug';
-import { CreateWorkspaceInput, InviteMemberInput } from '../schemas/workspace.schema';
+import { CreateWorkspaceInput, InviteMemberInput, UpdateMemberRoleInput, UpdateWorkspaceInput } from '../schemas/workspace.schema';
 
 export async function listUserWorkspaces(userId: string) {
   const memberships = await prisma.workspaceMember.findMany({
@@ -49,6 +49,34 @@ export async function createWorkspace(userId: string, input: CreateWorkspaceInpu
     slug: workspace.slug,
     role: Role.OWNER,
     createdAt: workspace.createdAt,
+  };
+}
+
+export async function updateWorkspace(
+  workspaceId: string,
+  input: UpdateWorkspaceInput
+) {
+  const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId } });
+  if (!workspace) {
+    throw new AppError('Workspace not found', 404, 'NOT_FOUND');
+  }
+
+  const slug = await generateUniqueSlug(input.name, async (s) => {
+    if (s === workspace.slug) return false;
+    const existing = await prisma.workspace.findUnique({ where: { slug: s } });
+    return !!existing;
+  });
+
+  const updated = await prisma.workspace.update({
+    where: { id: workspaceId },
+    data: { name: input.name, slug },
+  });
+
+  return {
+    id: updated.id,
+    name: updated.name,
+    slug: updated.slug,
+    createdAt: updated.createdAt,
   };
 }
 
@@ -217,5 +245,173 @@ export async function getInviteByToken(token: string) {
     expired: invite.expiresAt < new Date(),
     workspaceName: invite.workspace.name,
     workspaceId: invite.workspaceId,
+  };
+}
+
+async function getMemberOrThrow(workspaceId: string, memberId: string) {
+  const member = await prisma.workspaceMember.findFirst({
+    where: { id: memberId, workspaceId },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+  if (!member) {
+    throw new AppError('Member not found', 404, 'NOT_FOUND');
+  }
+  return member;
+}
+
+export async function updateMemberRole(
+  workspaceId: string,
+  memberId: string,
+  input: UpdateMemberRoleInput,
+  actorUserId: string
+) {
+  const actor = await prisma.workspaceMember.findUnique({
+    where: { userId_workspaceId: { userId: actorUserId, workspaceId } },
+  });
+  if (!actor || actor.role !== Role.OWNER) {
+    throw new AppError('Only the owner can change member roles', 403, 'FORBIDDEN');
+  }
+
+  const target = await getMemberOrThrow(workspaceId, memberId);
+
+  if (target.role === Role.OWNER) {
+    throw new AppError('Cannot change the owner role. Use transfer ownership.', 400, 'INVALID_OPERATION');
+  }
+
+  if (target.userId === actorUserId) {
+    throw new AppError('Cannot change your own role', 400, 'INVALID_OPERATION');
+  }
+
+  const updated = await prisma.workspaceMember.update({
+    where: { id: memberId },
+    data: { role: input.role },
+    include: { user: { select: { id: true, name: true, email: true } } },
+  });
+
+  return {
+    id: updated.id,
+    userId: updated.user.id,
+    name: updated.user.name,
+    email: updated.user.email,
+    role: updated.role,
+    joinedAt: updated.joinedAt,
+  };
+}
+
+export async function removeMember(
+  workspaceId: string,
+  memberId: string,
+  actorUserId: string
+) {
+  const actor = await prisma.workspaceMember.findUnique({
+    where: { userId_workspaceId: { userId: actorUserId, workspaceId } },
+  });
+  if (!actor || (actor.role !== Role.OWNER && actor.role !== Role.ADMIN)) {
+    throw new AppError('Insufficient permissions', 403, 'FORBIDDEN');
+  }
+
+  const target = await getMemberOrThrow(workspaceId, memberId);
+
+  if (target.role === Role.OWNER) {
+    throw new AppError('Cannot remove the workspace owner', 400, 'INVALID_OPERATION');
+  }
+
+  if (target.userId === actorUserId) {
+    throw new AppError('Cannot remove yourself', 400, 'INVALID_OPERATION');
+  }
+
+  if (actor.role === Role.ADMIN && target.role !== Role.MEMBER) {
+    throw new AppError('Admins can only remove members', 403, 'FORBIDDEN');
+  }
+
+  await prisma.workspaceMember.delete({ where: { id: memberId } });
+  return { message: 'Member removed' };
+}
+
+export async function listPendingWorkspaceInvites(workspaceId: string) {
+  const invites = await prisma.invite.findMany({
+    where: {
+      workspaceId,
+      accepted: false,
+      declined: false,
+      expiresAt: { gt: new Date() },
+    },
+    include: {
+      invitedBy: { select: { id: true, name: true, email: true } },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  return invites.map((invite) => ({
+    id: invite.id,
+    email: invite.email,
+    role: invite.role,
+    createdAt: invite.createdAt,
+    expiresAt: invite.expiresAt,
+    invitedBy: invite.invitedBy
+      ? { name: invite.invitedBy.name, email: invite.invitedBy.email }
+      : null,
+  }));
+}
+
+export async function revokeInvite(
+  workspaceId: string,
+  inviteId: string,
+  actorRole: Role
+) {
+  if (actorRole !== Role.OWNER && actorRole !== Role.ADMIN) {
+    throw new AppError('Insufficient permissions', 403, 'FORBIDDEN');
+  }
+
+  const invite = await prisma.invite.findFirst({
+    where: { id: inviteId, workspaceId, accepted: false, declined: false },
+  });
+
+  if (!invite) {
+    throw new AppError('Invite not found', 404, 'NOT_FOUND');
+  }
+
+  await prisma.invite.update({
+    where: { id: inviteId },
+    data: { declined: true, declinedAt: new Date() },
+  });
+
+  return { message: 'Invite revoked' };
+}
+
+export async function transferOwnership(
+  workspaceId: string,
+  newOwnerMemberId: string,
+  currentOwnerUserId: string
+) {
+  const currentOwner = await prisma.workspaceMember.findUnique({
+    where: { userId_workspaceId: { userId: currentOwnerUserId, workspaceId } },
+  });
+
+  if (!currentOwner || currentOwner.role !== Role.OWNER) {
+    throw new AppError('Only the owner can transfer ownership', 403, 'FORBIDDEN');
+  }
+
+  const newOwner = await getMemberOrThrow(workspaceId, newOwnerMemberId);
+
+  if (newOwner.userId === currentOwnerUserId) {
+    throw new AppError('Cannot transfer ownership to yourself', 400, 'INVALID_OPERATION');
+  }
+
+  await prisma.$transaction([
+    prisma.workspaceMember.update({
+      where: { id: currentOwner.id },
+      data: { role: Role.ADMIN },
+    }),
+    prisma.workspaceMember.update({
+      where: { id: newOwnerMemberId },
+      data: { role: Role.OWNER },
+    }),
+  ]);
+
+  return {
+    message: 'Ownership transferred',
+    newOwnerId: newOwner.userId,
+    newOwnerName: newOwner.user.name,
   };
 }

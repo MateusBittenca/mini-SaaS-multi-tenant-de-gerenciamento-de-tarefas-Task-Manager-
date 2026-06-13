@@ -19,10 +19,11 @@ interface KanbanColumnProps {
   config: ColumnConfig;
   tasks: Task[];
   onDeleteTask?: (id: string) => void;
+  onTaskClick?: (task: Task) => void;
   canDelete?: boolean;
 }
 
-export function KanbanColumn({ config, tasks, onDeleteTask, canDelete }: KanbanColumnProps) {
+export function KanbanColumn({ config, tasks, onDeleteTask, onTaskClick, canDelete }: KanbanColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: config.id });
   const Icon = config.icon;
 
@@ -88,6 +89,7 @@ export function KanbanColumn({ config, tasks, onDeleteTask, canDelete }: KanbanC
                 key={task.id}
                 task={task}
                 onDelete={onDeleteTask}
+                onClick={onTaskClick}
                 canDelete={canDelete}
               />
             ))

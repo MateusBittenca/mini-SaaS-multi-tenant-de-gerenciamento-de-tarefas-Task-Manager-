@@ -52,10 +52,11 @@ interface KanbanBoardProps {
   tasks: Task[];
   onStatusChange: (taskId: string, status: TaskStatus) => Promise<void>;
   onDeleteTask?: (id: string) => void;
+  onTaskClick?: (task: Task) => void;
   canDelete?: boolean;
 }
 
-export function KanbanBoard({ tasks, onStatusChange, onDeleteTask, canDelete }: KanbanBoardProps) {
+export function KanbanBoard({ tasks, onStatusChange, onDeleteTask, onTaskClick, canDelete }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeWidth, setActiveWidth] = useState<number | null>(null);
 
@@ -117,6 +118,7 @@ export function KanbanBoard({ tasks, onStatusChange, onDeleteTask, canDelete }: 
               config={column}
               tasks={getTasksByStatus(column.id)}
               onDeleteTask={onDeleteTask}
+              onTaskClick={onTaskClick}
               canDelete={canDelete}
             />
           </div>

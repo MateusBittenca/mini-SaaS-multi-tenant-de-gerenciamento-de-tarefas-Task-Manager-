@@ -1,6 +1,6 @@
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
-import { CreateProjectInput } from '../schemas/project.schema';
+import { CreateProjectInput, UpdateProjectInput } from '../schemas/project.schema';
 
 export async function listProjects(workspaceId: string) {
   return prisma.project.findMany({
@@ -44,4 +44,20 @@ export async function getProjectInWorkspace(projectId: string, workspaceId: stri
   }
 
   return project;
+}
+
+export async function updateProject(
+  projectId: string,
+  workspaceId: string,
+  input: UpdateProjectInput
+) {
+  await getProjectInWorkspace(projectId, workspaceId);
+
+  return prisma.project.update({
+    where: { id: projectId },
+    data: {
+      ...(input.name !== undefined && { name: input.name }),
+      ...(input.description !== undefined && { description: input.description }),
+    },
+  });
 }

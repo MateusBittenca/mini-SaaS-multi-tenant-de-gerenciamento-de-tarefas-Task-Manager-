@@ -45,6 +45,40 @@ export interface Task {
   createdAt: string;
   updatedAt: string;
   assignee?: TaskAssignee | null;
+  project?: { id: string; name: string };
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  authorId: string;
+  content: string;
+  createdAt: string;
+  updatedAt: string;
+  author: TaskAssignee;
+}
+
+export type ActivityType =
+  | 'TASK_CREATED'
+  | 'TASK_UPDATED'
+  | 'TASK_STATUS_CHANGED'
+  | 'TASK_ASSIGNED'
+  | 'TASK_UNASSIGNED'
+  | 'TASK_DUE_DATE_CHANGED'
+  | 'TASK_DELETED'
+  | 'COMMENT_ADDED'
+  | 'COMMENT_DELETED';
+
+export interface TaskActivity {
+  id: string;
+  workspaceId: string;
+  taskId: string | null;
+  projectId: string | null;
+  actorId: string;
+  type: ActivityType;
+  metadata: Record<string, unknown> | null;
+  createdAt: string;
+  actor: TaskAssignee;
 }
 
 export interface WorkspaceMember {
@@ -54,6 +88,15 @@ export interface WorkspaceMember {
   email: string;
   role: Role;
   joinedAt: string;
+}
+
+export interface PendingWorkspaceInvite {
+  id: string;
+  email: string;
+  role: Role;
+  createdAt: string;
+  expiresAt: string;
+  invitedBy: { name: string; email: string } | null;
 }
 
 export interface InvitePreview {

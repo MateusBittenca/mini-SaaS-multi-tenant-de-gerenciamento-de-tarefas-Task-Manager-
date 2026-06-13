@@ -72,3 +72,88 @@ export async function getInvite(req: Request, res: Response, next: NextFunction)
     next(error);
   }
 }
+
+export async function updateMemberRole(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const authReq = req as AuthRequest;
+    const data = await workspaceService.updateMemberRole(
+      wsReq.workspaceMember.workspaceId,
+      getParam(req, 'memberId'),
+      req.body,
+      authReq.userId
+    );
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function removeMember(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const authReq = req as AuthRequest;
+    const data = await workspaceService.removeMember(
+      wsReq.workspaceMember.workspaceId,
+      getParam(req, 'memberId'),
+      authReq.userId
+    );
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function listPendingInvites(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const data = await workspaceService.listPendingWorkspaceInvites(
+      wsReq.workspaceMember.workspaceId
+    );
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function revokeInvite(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const data = await workspaceService.revokeInvite(
+      wsReq.workspaceMember.workspaceId,
+      getParam(req, 'inviteId'),
+      wsReq.workspaceMember.role
+    );
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function transferOwnership(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const authReq = req as AuthRequest;
+    const data = await workspaceService.transferOwnership(
+      wsReq.workspaceMember.workspaceId,
+      req.body.memberId,
+      authReq.userId
+    );
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateWorkspace(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const data = await workspaceService.updateWorkspace(
+      wsReq.workspaceMember.workspaceId,
+      req.body
+    );
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}

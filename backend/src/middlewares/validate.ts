@@ -8,17 +8,33 @@ interface ValidationSchemas {
   query?: ZodSchema;
 }
 
+function assignValidated<T extends Record<string, unknown>>(
+  req: Request,
+  key: 'params' | 'query' | 'body',
+  parsed: T
+) {
+  try {
+    (req as Request & Record<string, unknown>)[key] = parsed;
+  } catch {
+    const target = req[key] as Record<string, unknown>;
+    for (const k of Object.keys(target)) {
+      delete target[k];
+    }
+    Object.assign(target, parsed);
+  }
+}
+
 export function validate(schemas: ValidationSchemas) {
   return (req: Request, _res: Response, next: NextFunction) => {
     try {
       if (schemas.body) {
-        req.body = schemas.body.parse(req.body);
+        assignValidated(req, 'body', schemas.body.parse(req.body) as Record<string, unknown>);
       }
       if (schemas.params) {
-        req.params = schemas.params.parse(req.params);
+        assignValidated(req, 'params', schemas.params.parse(req.params) as Record<string, unknown>);
       }
       if (schemas.query) {
-        req.query = schemas.query.parse(req.query);
+        assignValidated(req, 'query', schemas.query.parse(req.query) as Record<string, unknown>);
       }
       next();
     } catch (error) {

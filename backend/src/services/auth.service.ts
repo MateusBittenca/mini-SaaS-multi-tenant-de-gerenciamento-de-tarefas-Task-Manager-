@@ -9,7 +9,7 @@ import {
   REFRESH_COOKIE_NAME,
   REFRESH_COOKIE_MAX_AGE,
 } from '../lib/jwt';
-import { RegisterInput, LoginInput } from '../schemas/auth.schema';
+import { RegisterInput, LoginInput, UpdateProfileInput } from '../schemas/auth.schema';
 
 const BCRYPT_ROUNDS = 12;
 
@@ -100,4 +100,38 @@ export async function refreshAccessToken(refreshToken: string) {
 
 export function logoutUser(res: Response) {
   res.clearCookie(REFRESH_COOKIE_NAME, { path: '/api/auth' });
+}
+
+export async function getCurrentUser(userId: string) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new AppError('User not found', 404, 'NOT_FOUND');
+  }
+  return sanitizeUser(user);
+}
+
+export async function updateProfile(userId: string, input: UpdateProfileInput) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user) {
+    throw new AppError('User not found', 404, 'NOT_FOUND');
+  }
+
+  if (input.newPassword) {
+    const valid = await bcrypt.compare(input.currentPassword!, user.passwordHash);
+    if (!valid) {
+      throw new AppError('Current password is incorrect', 400, 'INVALID_PASSWORD');
+    }
+  }
+
+  const updated = await prisma.user.update({
+    where: { id: userId },
+    data: {
+      ...(input.name !== undefined && { name: input.name }),
+      ...(input.newPassword && {
+        passwordHash: await bcrypt.hash(input.newPassword, BCRYPT_ROUNDS),
+      }),
+    },
+  });
+
+  return sanitizeUser(updated);
 }

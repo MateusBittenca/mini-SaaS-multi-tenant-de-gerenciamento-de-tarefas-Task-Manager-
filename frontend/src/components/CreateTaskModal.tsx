@@ -5,12 +5,16 @@ import { z } from 'zod';
 import { Modal } from './Modal';
 import { Input } from './Input';
 import { Button } from './Button';
-import type { TaskPriority } from '../lib/types';
+import { MemberSelect } from './MemberSelect';
+import { dateInputToIso } from '../lib/dates';
+import type { TaskPriority, WorkspaceMember } from '../lib/types';
 
 const schema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
   description: z.string().max(1000).optional(),
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
+  assigneeId: z.string().optional(),
+  dueDate: z.string().optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -18,10 +22,17 @@ type FormData = z.infer<typeof schema>;
 interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: { title: string; description?: string; priority?: TaskPriority }) => Promise<void>;
+  members: WorkspaceMember[];
+  onSubmit: (data: {
+    title: string;
+    description?: string;
+    priority?: TaskPriority;
+    assigneeId?: string | null;
+    dueDate?: string | null;
+  }) => Promise<void>;
 }
 
-export function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTaskModalProps) {
+export function CreateTaskModal({ isOpen, onClose, members, onSubmit }: CreateTaskModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -29,18 +40,28 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTaskModalPr
     register,
     handleSubmit,
     reset,
+    watch,
+    setValue,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
     defaultValues: { priority: 'MEDIUM' },
   });
 
+  const assigneeId = watch('assigneeId') ?? '';
+
   const handleFormSubmit = async (data: FormData) => {
     setLoading(true);
     setError('');
     try {
-      await onSubmit(data);
-      reset();
+      await onSubmit({
+        title: data.title,
+        description: data.description,
+        priority: data.priority as TaskPriority,
+        assigneeId: data.assigneeId || null,
+        dueDate: dateInputToIso(data.dueDate ?? ''),
+      });
+      reset({ priority: 'MEDIUM' });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar tarefa');
@@ -67,17 +88,32 @@ export function CreateTaskModal({ isOpen, onClose, onSubmit }: CreateTaskModalPr
             placeholder="Detalhes adicionais (opcional)"
           />
         </div>
-        <div className="space-y-1.5">
-          <label className="block text-sm font-medium text-espresso">Prioridade</label>
-          <select
-            {...register('priority')}
-            className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta hover:border-espresso-faint transition-colors"
-          >
-            <option value="LOW">Baixa</option>
-            <option value="MEDIUM">Média</option>
-            <option value="HIGH">Alta</option>
-          </select>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-espresso">Prioridade</label>
+            <select
+              {...register('priority')}
+              className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta hover:border-espresso-faint transition-colors"
+            >
+              <option value="LOW">Baixa</option>
+              <option value="MEDIUM">Média</option>
+              <option value="HIGH">Alta</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="block text-sm font-medium text-espresso">Prazo</label>
+            <input
+              type="date"
+              {...register('dueDate')}
+              className="w-full px-3.5 py-2.5 bg-white border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
+            />
+          </div>
         </div>
+        <MemberSelect
+          members={members}
+          value={assigneeId}
+          onChange={(v) => setValue('assigneeId', v)}
+        />
         {error && <p className="text-sm text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">
           <Button type="button" variant="ghost" onClick={onClose}>

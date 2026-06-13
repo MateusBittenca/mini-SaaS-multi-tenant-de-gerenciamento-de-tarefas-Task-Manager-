@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service';
 import { REFRESH_COOKIE_NAME } from '../lib/jwt';
+import { AuthRequest } from '../middlewares/auth';
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
@@ -40,6 +41,26 @@ export async function logout(req: Request, res: Response, next: NextFunction) {
   try {
     authService.logoutUser(res);
     res.json({ data: { message: 'Logged out successfully' } });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getMe(req: Request, res: Response, next: NextFunction) {
+  try {
+    const authReq = req as AuthRequest;
+    const data = await authService.getCurrentUser(authReq.userId);
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function updateMe(req: Request, res: Response, next: NextFunction) {
+  try {
+    const authReq = req as AuthRequest;
+    const data = await authService.updateProfile(authReq.userId, req.body);
+    res.json({ data });
   } catch (error) {
     next(error);
   }

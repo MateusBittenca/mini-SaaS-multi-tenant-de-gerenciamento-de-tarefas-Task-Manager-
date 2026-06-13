@@ -21,13 +21,44 @@ export async function listTasks(req: Request, res: Response, next: NextFunction)
   }
 }
 
+export async function listMyTasks(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const data = await taskService.listMyTasks(
+      wsReq.workspaceMember.workspaceId,
+      wsReq.userId,
+      {
+        status: req.query.status as string | undefined,
+        overdue: req.query.overdue as boolean | undefined,
+      }
+    );
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getTask(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const data = await taskService.getTask(
+      getParam(req, 'id'),
+      wsReq.workspaceMember.workspaceId
+    );
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
 export async function createTask(req: Request, res: Response, next: NextFunction) {
   try {
     const wsReq = req as WorkspaceRequest;
     const data = await taskService.createTask(
       getParam(req, 'projectId'),
       wsReq.workspaceMember.workspaceId,
-      req.body
+      req.body,
+      wsReq.userId
     );
     res.status(201).json({ data });
   } catch (error) {
@@ -41,7 +72,8 @@ export async function updateTask(req: Request, res: Response, next: NextFunction
     const data = await taskService.updateTask(
       getParam(req, 'id'),
       wsReq.workspaceMember.workspaceId,
-      req.body
+      req.body,
+      wsReq.userId
     );
     res.json({ data });
   } catch (error) {
@@ -74,7 +106,7 @@ export async function deleteTask(req: Request, res: Response, next: NextFunction
       throw new AppError('Insufficient permissions', 403, 'FORBIDDEN');
     }
 
-    await taskService.deleteTask(getParam(req, 'id'), workspaceId);
+    await taskService.deleteTask(getParam(req, 'id'), workspaceId, authReq.userId);
     res.json({ data: { message: 'Task deleted' } });
   } catch (error) {
     next(error);

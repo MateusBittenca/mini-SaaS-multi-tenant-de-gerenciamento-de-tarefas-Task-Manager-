@@ -21,11 +21,12 @@ const priorityConfig: Record<
 interface TaskCardProps {
   task: Task;
   onDelete?: (id: string) => void;
+  onClick?: (task: Task) => void;
   canDelete?: boolean;
   isOverlay?: boolean;
 }
 
-export function TaskCard({ task, onDelete, canDelete, isOverlay }: TaskCardProps) {
+export function TaskCard({ task, onDelete, onClick, canDelete, isOverlay }: TaskCardProps) {
   const priority = priorityConfig[task.priority];
   const PriorityIcon = priority.icon;
 
@@ -35,10 +36,19 @@ export function TaskCard({ task, onDelete, canDelete, isOverlay }: TaskCardProps
 
   return (
     <div
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onClick={() => onClick?.(task)}
+      onKeyDown={(e) => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault();
+          onClick(task);
+        }
+      }}
       className={`bg-white rounded-xl border p-3.5 ${
         isOverlay
           ? 'border-terracotta/50 shadow-card-hover rotate-1'
-          : 'border-sand hover:border-espresso-faint transition-shadow'
+          : `border-sand hover:border-espresso-faint transition-shadow ${onClick ? 'cursor-pointer' : ''}`
       }`}
       style={{ boxShadow: isOverlay ? 'var(--shadow-card-hover)' : 'var(--shadow-card)' }}
     >

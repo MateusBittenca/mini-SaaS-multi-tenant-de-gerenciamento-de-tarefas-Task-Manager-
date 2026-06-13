@@ -25,6 +25,18 @@ enum TaskPriority {
   HIGH
 }
 
+enum ActivityType {
+  TASK_CREATED
+  TASK_UPDATED
+  TASK_STATUS_CHANGED
+  TASK_ASSIGNED
+  TASK_UNASSIGNED
+  TASK_DUE_DATE_CHANGED
+  TASK_DELETED
+  COMMENT_ADDED
+  COMMENT_DELETED
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -36,6 +48,8 @@ model User {
   assignedTasks Task[]            @relation("TaskAssignee")
   invites       Invite[]          @relation("InviteRecipient")
   sentInvites   Invite[]          @relation("InviteSender")
+  comments      TaskComment[]
+  activities    Activity[]
 }
 
 model Workspace {
@@ -88,11 +102,43 @@ model Task {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
-  project  Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  assignee User?   @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  project  Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  assignee User?         @relation("TaskAssignee", fields: [assigneeId], references: [id], onDelete: SetNull)
+  comments TaskComment[]
 
   @@index([projectId])
   @@index([assigneeId])
+}
+
+model TaskComment {
+  id        String   @id @default(cuid())
+  taskId    String
+  authorId  String
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  task   Task @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([taskId])
+}
+
+model Activity {
+  id          String       @id @default(cuid())
+  workspaceId String
+  taskId      String?
+  projectId   String?
+  actorId     String
+  type        ActivityType
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+
+  actor User @relation(fields: [actorId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([taskId])
+  @@index([createdAt])
 }
 
 model Invite {

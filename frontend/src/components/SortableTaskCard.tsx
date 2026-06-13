@@ -6,10 +6,11 @@ import { TaskCard } from './TaskCard';
 interface SortableTaskCardProps {
   task: Task;
   onDelete?: (id: string) => void;
+  onClick?: (task: Task) => void;
   canDelete?: boolean;
 }
 
-export function SortableTaskCard({ task, onDelete, canDelete }: SortableTaskCardProps) {
+export function SortableTaskCard({ task, onDelete, onClick, canDelete }: SortableTaskCardProps) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
     useSortable({ id: task.id });
 
@@ -26,7 +27,7 @@ export function SortableTaskCard({ task, onDelete, canDelete }: SortableTaskCard
       {...listeners}
       className={`group touch-none ${isDragging ? 'opacity-0' : 'opacity-100'}`}
     >
-      <TaskCard task={task} onDelete={onDelete} canDelete={canDelete} />
+      <TaskCard task={task} onDelete={onDelete} onClick={onClick} canDelete={canDelete} />
     </div>
   );
 }

@@ -7,6 +7,8 @@ import { WorkspacesPage } from './pages/WorkspacesPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProjectPage } from './pages/ProjectPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { MyTasksPage } from './pages/MyTasksPage';
+import { AccountPage } from './pages/AccountPage';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
 import { useAuthStore } from './stores/authStore';
 
@@ -44,8 +46,10 @@ export default function App() {
           <Route path="/invites/:token" element={<AcceptInvitePage />} />
           <Route path="/w/:workspaceId" element={<WorkspaceLayout />}>
             <Route index element={<DashboardPage />} />
+            <Route path="tasks" element={<MyTasksPage />} />
             <Route path="projects/:projectId" element={<ProjectPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="account" element={<AccountPage />} />
           </Route>
         </Route>
 

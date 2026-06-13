@@ -75,3 +75,17 @@ export async function getProject(req: Request, res: Response, next: NextFunction
     next(error);
   }
 }
+
+export async function updateProject(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const data = await projectService.updateProject(
+      getParam(req, 'id'),
+      wsReq.workspaceMember.workspaceId,
+      req.body
+    );
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
