@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", Georgia, serif;
+  --font-body: "DM Sans", system-ui, sans-serif;
+
+  --color-cream: #faf7f2;
+  --color-cream-dark: #f3ede4;
+  --color-espresso: #1c1410;
+  --color-espresso-muted: #6b5e54;
+  --color-espresso-faint: #a89888;
+  --color-sand: #e8dfd4;
+  --color-sand-light: #f3ede4;
+  --color-terracotta: #c45c3e;
+  --color-terracotta-hover: #a84a30;
+  --color-terracotta-light: #fdf0ec;
+  --color-sage: #5a7a6a;
+  --color-sage-light: #f0f5f2;
+  --color-amber-warm: #d4924a;
+  --color-amber-light: #fdf6ec;
+  --color-danger: #b83c3c;
+  --color-danger-light: #fdf0f0;
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.25rem;
+
+  --shadow-card: 0 1px 2px rgba(28, 20, 16, 0.04), 0 4px 16px rgba(28, 20, 16, 0.06);
+  --shadow-card-hover: 0 4px 8px rgba(28, 20, 16, 0.06), 0 12px 32px rgba(28, 20, 16, 0.1);
+  --shadow-modal: 0 24px 64px rgba(28, 20, 16, 0.18);
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--color-cream);
+  color: var(--color-espresso);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--color-terracotta) 25%, transparent);
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.35s ease-out forwards;
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-cream-dark) 25%,
+    var(--color-sand-light) 50%,
+    var(--color-cream-dark) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+}
