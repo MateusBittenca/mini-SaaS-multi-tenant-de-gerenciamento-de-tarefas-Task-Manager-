@@ -11,6 +11,7 @@ import {
 import { useAuthStore } from '../stores/authStore';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 import api from '../lib/api';
+import { NotificationBell } from './NotificationBell';
 
 export function WorkspaceLayout() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -163,24 +164,27 @@ export function WorkspaceLayout() {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
-        <header className="sticky top-0 z-30 bg-cream/80 backdrop-blur-md border-b border-sand px-4 lg:px-8 h-14 flex items-center gap-4">
-          <button
-            onClick={() => setSidebarOpen(true)}
-            className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-cream-dark text-espresso-muted"
-          >
-            <Menu className="w-5 h-5" />
-          </button>
-          <div className="flex items-center gap-2 text-espresso-muted text-sm">
-            <FolderKanban className="w-4 h-4" />
-            <span className="hidden sm:inline text-espresso-faint">/</span>
-            <span className="font-medium text-espresso truncate">
-              {location.pathname.includes('/projects/')
-                ? 'Board'
-                : location.pathname.includes('/settings')
-                  ? 'Equipe'
-                  : 'Projetos'}
-            </span>
+        <header className="sticky top-0 z-30 bg-cream/80 backdrop-blur-md border-b border-sand px-4 lg:px-8 h-14 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-4 min-w-0">
+            <button
+              onClick={() => setSidebarOpen(true)}
+              className="lg:hidden p-2 -ml-2 rounded-lg hover:bg-cream-dark text-espresso-muted"
+            >
+              <Menu className="w-5 h-5" />
+            </button>
+            <div className="flex items-center gap-2 text-espresso-muted text-sm min-w-0">
+              <FolderKanban className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline text-espresso-faint">/</span>
+              <span className="font-medium text-espresso truncate">
+                {location.pathname.includes('/projects/')
+                  ? 'Board'
+                  : location.pathname.includes('/settings')
+                    ? 'Equipe'
+                    : 'Projetos'}
+              </span>
+            </div>
           </div>
+          <NotificationBell />
         </header>
 
         <main className="flex-1 px-4 lg:px-8 py-6 lg:py-8 overflow-auto">

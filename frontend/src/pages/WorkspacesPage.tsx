@@ -12,6 +12,7 @@ import { Alert } from '../components/Alert';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { EmptyState } from '../components/EmptyState';
 import { Logo } from '../components/Logo';
+import { NotificationBell } from '../components/NotificationBell';
 
 const roleLabels = {
   OWNER: 'Proprietário',
@@ -88,6 +89,7 @@ export function WorkspacesPage() {
         <div className="max-w-3xl mx-auto px-6 h-16 flex items-center justify-between">
           <Logo linkTo="/workspaces" />
           <div className="flex items-center gap-4">
+            <NotificationBell />
             <span className="text-sm text-espresso-muted hidden sm:block">{user?.name}</span>
             <button
               onClick={handleLogout}

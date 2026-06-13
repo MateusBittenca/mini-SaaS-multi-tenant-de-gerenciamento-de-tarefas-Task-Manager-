@@ -60,9 +60,33 @@ export interface InvitePreview {
   email: string;
   role: Role;
   accepted: boolean;
+  declined?: boolean;
   expired: boolean;
   workspaceName: string;
   workspaceId: string;
+}
+
+export interface PendingInviteNotification {
+  id: string;
+  workspaceId: string;
+  workspaceName: string;
+  role: Role;
+  invitedBy: { name: string; email: string } | null;
+  createdAt: string;
+  expiresAt: string;
+}
+
+export interface NotificationsResponse {
+  unreadCount: number;
+  invites: PendingInviteNotification[];
+}
+
+export interface AcceptInviteResponse {
+  workspaceId: string;
+  workspaceName: string;
+  role: Role;
+  slug?: string;
+  alreadyMember: boolean;
 }
 
 export interface ApiResponse<T> {

@@ -29,7 +29,8 @@ export async function inviteMember(req: Request, res: Response, next: NextFuncti
     const wsReq = req as WorkspaceRequest;
     const data = await workspaceService.inviteMember(
       wsReq.workspaceMember.workspaceId,
-      req.body
+      req.body,
+      wsReq.userId
     );
     res.status(201).json({ data });
   } catch (error) {

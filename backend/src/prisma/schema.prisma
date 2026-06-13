@@ -32,8 +32,10 @@ model User {
   passwordHash String
   createdAt    DateTime @default(now())
 
-  memberships WorkspaceMember[]
-  assignedTasks Task[] @relation("TaskAssignee")
+  memberships   WorkspaceMember[]
+  assignedTasks Task[]            @relation("TaskAssignee")
+  invites       Invite[]          @relation("InviteRecipient")
+  sentInvites   Invite[]          @relation("InviteSender")
 }
 
 model Workspace {
@@ -94,17 +96,24 @@ model Task {
 }
 
 model Invite {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   workspaceId String
   email       String
-  role        Role     @default(MEMBER)
-  token       String   @unique
+  role        Role      @default(MEMBER)
+  token       String    @unique
   expiresAt   DateTime
-  accepted    Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  accepted    Boolean   @default(false)
+  declined    Boolean   @default(false)
+  declinedAt  DateTime?
+  userId      String?
+  invitedById String?
+  createdAt   DateTime  @default(now())
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation("InviteRecipient", fields: [userId], references: [id], onDelete: SetNull)
+  invitedBy User?     @relation("InviteSender", fields: [invitedById], references: [id], onDelete: SetNull)
 
   @@index([workspaceId])
   @@index([email])
+  @@index([userId])
 }

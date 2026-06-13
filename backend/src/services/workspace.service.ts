@@ -54,7 +54,8 @@ export async function createWorkspace(userId: string, input: CreateWorkspaceInpu
 
 export async function inviteMember(
   workspaceId: string,
-  input: InviteMemberInput
+  input: InviteMemberInput,
+  invitedById: string
 ) {
   const existingMember = await prisma.user.findUnique({
     where: { email: input.email },
@@ -72,6 +73,7 @@ export async function inviteMember(
       workspaceId,
       email: input.email,
       accepted: false,
+      declined: false,
       expiresAt: { gt: new Date() },
     },
   });
@@ -91,6 +93,8 @@ export async function inviteMember(
       role: input.role,
       token,
       expiresAt,
+      userId: existingMember?.id ?? null,
+      invitedById,
     },
     include: { workspace: true },
   });
@@ -113,6 +117,10 @@ export async function acceptInvite(token: string, userId: string, userEmail: str
 
   if (!invite) {
     throw new AppError('Invite not found', 404, 'NOT_FOUND');
+  }
+
+  if (invite.declined) {
+    throw new AppError('Invite was declined', 400, 'INVITE_DECLINED');
   }
 
   if (invite.accepted) {
@@ -139,7 +147,7 @@ export async function acceptInvite(token: string, userId: string, userEmail: str
   if (existing) {
     await prisma.invite.update({
       where: { id: invite.id },
-      data: { accepted: true },
+      data: { accepted: true, userId },
     });
     return {
       workspaceId: invite.workspaceId,
@@ -158,7 +166,7 @@ export async function acceptInvite(token: string, userId: string, userEmail: str
     }),
     prisma.invite.update({
       where: { id: invite.id },
-      data: { accepted: true },
+      data: { accepted: true, userId },
     }),
   ]);
 
@@ -205,6 +213,7 @@ export async function getInviteByToken(token: string) {
     email: invite.email,
     role: invite.role,
     accepted: invite.accepted,
+    declined: invite.declined,
     expired: invite.expiresAt < new Date(),
     workspaceName: invite.workspace.name,
     workspaceId: invite.workspaceId,

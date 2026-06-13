@@ -7,6 +7,8 @@ import authRoutes from './routes/auth.routes';
 import workspaceRoutes from './routes/workspace.routes';
 import projectRoutes from './routes/project.routes';
 import taskRoutes from './routes/task.routes';
+import notificationsRoutes from './routes/notifications.routes';
+import inviteRoutes from './routes/invite.routes';
 import { isAppError } from './lib/errors';
 
 const app = express();
@@ -28,6 +30,8 @@ app.get('/health', (_req, res) => {
 });
 
 app.use('/api/auth', authRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/invites', inviteRoutes);
 app.use('/api/workspaces', workspaceRoutes);
 app.use('/api', projectRoutes);
 app.use('/api', taskRoutes);
