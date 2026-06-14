@@ -13,6 +13,7 @@ import {
   updateMemberRoleSchema,
   transferOwnershipSchema,
   updateWorkspaceSchema,
+  workspaceSearchQuerySchema,
 } from '../schemas/workspace.schema';
 import { Role } from '@prisma/client';
 
@@ -48,6 +49,13 @@ router.get(
   validate({ params: workspaceIdParamSchema }),
   workspaceMiddleware,
   workspaceController.getOverview
+);
+
+router.get(
+  '/:id/search',
+  validate({ params: workspaceIdParamSchema, query: workspaceSearchQuerySchema }),
+  workspaceMiddleware,
+  workspaceController.search
 );
 
 router.get(

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { Link, Outlet, useLocation, useNavigate, useParams } from 'react-router-dom';
 import {
   BarChart3,
@@ -7,6 +7,7 @@ import {
   ListTodo,
   LogOut,
   Menu,
+  Search,
   Settings,
   User,
   X,
@@ -15,6 +16,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 import api from '../lib/api';
 import { NotificationBell } from './NotificationBell';
+import { GlobalSearch, useGlobalSearchShortcut } from './GlobalSearch';
 
 export function WorkspaceLayout() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
@@ -26,6 +28,10 @@ export function WorkspaceLayout() {
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
   const navigate = useNavigate();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+
+  const openSearch = useCallback(() => setSearchOpen(true), []);
+  useGlobalSearchShortcut(openSearch);
 
   const workspace = getActiveWorkspace();
 
@@ -212,8 +218,19 @@ export function WorkspaceLayout() {
               <span className="font-medium text-espresso truncate">{breadcrumb}</span>
             </div>
           </div>
-          <NotificationBell />
+          <div className="flex items-center gap-1">
+            <button
+              onClick={openSearch}
+              className="p-2 rounded-lg text-espresso-muted hover:text-espresso hover:bg-cream-dark transition-colors"
+              aria-label="Buscar"
+            >
+              <Search className="w-5 h-5" strokeWidth={1.5} />
+            </button>
+            <NotificationBell />
+          </div>
         </header>
+
+        <GlobalSearch open={searchOpen} onClose={() => setSearchOpen(false)} />
 
         <main className="flex-1 px-4 lg:px-8 py-6 lg:py-8 overflow-auto">
           <Outlet />

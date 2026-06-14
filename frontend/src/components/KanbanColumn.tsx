@@ -29,6 +29,7 @@ export function KanbanColumn({ config, tasks, onDeleteTask, onTaskClick, canDele
 
   return (
     <div
+      data-testid={`kanban-column-${config.id}`}
       className={`flex flex-col rounded-2xl border transition-all duration-200 min-h-[480px] ${config.bg} ${
         isOver ? 'border-terracotta/50 ring-2 ring-terracotta/20 scale-[1.01]' : 'border-transparent'
       }`}

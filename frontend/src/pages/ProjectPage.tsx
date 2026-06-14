@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Circle, Loader, CheckCircle2, Pencil, Search } from 'lucide-react';
 import api, { getErrorMessage } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
@@ -31,6 +31,7 @@ const defaultFilters: TaskFilters = {
 
 export function ProjectPage() {
   const { workspaceId, projectId } = useParams<{ workspaceId: string; projectId: string }>();
+  const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const getActiveWorkspace = useWorkspaceStore((s) => s.getActiveWorkspace);
   const [project, setProject] = useState<Project | null>(null);
@@ -61,6 +62,13 @@ export function ProjectPage() {
       loadData();
     }
   }, [projectId, workspaceId]);
+
+  useEffect(() => {
+    const openTaskId = (location.state as { openTaskId?: string } | null)?.openTaskId;
+    if (!openTaskId || tasks.length === 0) return;
+    const task = tasks.find((t) => t.id === openTaskId);
+    if (task) setSelectedTask(task);
+  }, [location.state, tasks]);
 
   const loadData = async () => {
     setLoading(true);

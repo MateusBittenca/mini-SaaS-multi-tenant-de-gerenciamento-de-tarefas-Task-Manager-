@@ -37,6 +37,12 @@ enum ActivityType {
   COMMENT_DELETED
 }
 
+enum NotificationType {
+  TASK_ASSIGNED
+  TASK_COMMENTED
+  TASK_DUE_SOON
+}
+
 model User {
   id           String   @id @default(cuid())
   name         String
@@ -50,6 +56,8 @@ model User {
   sentInvites   Invite[]          @relation("InviteSender")
   comments      TaskComment[]
   activities    Activity[]
+  notifications Notification[]
+  passwordResets PasswordResetToken[]
 }
 
 model Workspace {
@@ -162,4 +170,39 @@ model Invite {
   @@index([workspaceId])
   @@index([email])
   @@index([userId])
+}
+
+model Notification {
+  id          String           @id @default(cuid())
+  userId      String
+  workspaceId String
+  type        NotificationType
+  read        Boolean          @default(false)
+  taskId      String?
+  projectId   String?
+  actorId     String?
+  metadata    Json?
+  createdAt   DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([workspaceId])
+  @@index([read])
+  @@index([createdAt])
+  @@index([userId, type, taskId])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([token])
 }

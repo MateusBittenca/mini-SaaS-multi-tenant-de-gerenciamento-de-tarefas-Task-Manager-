@@ -2,6 +2,7 @@ import { ActivityType } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { logActivity } from '../lib/activity';
+import { notifyTaskCommented } from './notification.service';
 import { CreateCommentInput } from '../schemas/comment.schema';
 import { Role } from '@prisma/client';
 import { ROLE_HIERARCHY } from '../middlewares/workspace';
@@ -53,6 +54,23 @@ export async function createComment(
     projectId: task.projectId,
     metadata: { commentId: comment.id, preview: input.content.slice(0, 100) },
   });
+
+  if (task.assigneeId) {
+    const actor = await prisma.user.findUnique({
+      where: { id: authorId },
+      select: { name: true },
+    });
+    await notifyTaskCommented({
+      assigneeId: task.assigneeId,
+      workspaceId,
+      taskId,
+      projectId: task.projectId,
+      actorId: authorId,
+      taskTitle: task.title,
+      actorName: actor?.name ?? 'Alguém',
+      commentPreview: input.content.slice(0, 100),
+    });
+  }
 
   return comment;
 }

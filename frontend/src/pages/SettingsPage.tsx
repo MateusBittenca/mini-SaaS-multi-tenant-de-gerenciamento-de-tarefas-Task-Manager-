@@ -59,10 +59,9 @@ export function SettingsPage() {
   };
 
   const handleInvite = async (data: { email: string; role: Role }) => {
-    const { data: res } = await api.post<{ data: { token: string } }>(
-      `/workspaces/${workspaceId}/invite`,
-      data
-    );
+    const { data: res } = await api.post<{
+      data: { token: string; emailSent?: boolean; devInviteUrl?: string };
+    }>(`/workspaces/${workspaceId}/invite`, data);
     await loadData();
     return res.data;
   };

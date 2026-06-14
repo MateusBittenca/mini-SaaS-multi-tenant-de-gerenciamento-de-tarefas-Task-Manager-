@@ -96,6 +96,14 @@ export function LoginPage() {
               error={errors.password?.message}
               placeholder="••••••••"
             />
+            <div className="flex justify-end -mt-2">
+              <Link
+                to="/forgot-password"
+                className="text-xs text-terracotta hover:underline"
+              >
+                Esqueceu sua senha?
+              </Link>
+            </div>
             {error && <Alert>{error}</Alert>}
             <Button type="submit" loading={loading} className="w-full" size="lg">
               Entrar

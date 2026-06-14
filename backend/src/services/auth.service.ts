@@ -1,4 +1,5 @@
 import bcrypt from 'bcrypt';
+import { randomUUID } from 'crypto';
 import { Response } from 'express';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
@@ -9,9 +10,20 @@ import {
   REFRESH_COOKIE_NAME,
   REFRESH_COOKIE_MAX_AGE,
 } from '../lib/jwt';
-import { RegisterInput, LoginInput, UpdateProfileInput } from '../schemas/auth.schema';
+import { sendPasswordResetEmail } from './email.service';
+import {
+  RegisterInput,
+  LoginInput,
+  UpdateProfileInput,
+  ForgotPasswordInput,
+  ResetPasswordInput,
+} from '../schemas/auth.schema';
 
 const BCRYPT_ROUNDS = 12;
+const RESET_TOKEN_HOURS = 1;
+
+const GENERIC_RESET_MESSAGE =
+  'Se existir uma conta com este e-mail, enviaremos instruções para redefinir a senha.';
 
 function sanitizeUser(user: { id: string; name: string; email: string; createdAt: Date }) {
   return {
@@ -134,4 +146,102 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
   });
 
   return sanitizeUser(updated);
+}
+
+export async function requestPasswordReset(input: ForgotPasswordInput) {
+  const user = await prisma.user.findFirst({
+    where: { email: { equals: input.email, mode: 'insensitive' } },
+  });
+
+  if (!user) {
+    return { message: GENERIC_RESET_MESSAGE, emailSent: false };
+  }
+
+  await prisma.passwordResetToken.updateMany({
+    where: { userId: user.id, usedAt: null },
+    data: { usedAt: new Date() },
+  });
+
+  const token = randomUUID();
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + RESET_TOKEN_HOURS);
+
+  await prisma.passwordResetToken.create({
+    data: {
+      userId: user.id,
+      token,
+      expiresAt,
+    },
+  });
+
+  const resetUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/reset-password/${token}`;
+
+  const emailSent = await sendPasswordResetEmail({
+    to: user.email,
+    userName: user.name,
+    token,
+    expiresAt,
+  });
+
+  const isDev = process.env.NODE_ENV !== 'production';
+
+  return {
+    message: GENERIC_RESET_MESSAGE,
+    emailSent,
+    ...(isDev && !emailSent ? { devResetUrl: resetUrl } : {}),
+  };
+}
+
+export async function getPasswordResetToken(token: string) {
+  const record = await prisma.passwordResetToken.findUnique({
+    where: { token },
+    include: { user: { select: { email: true } } },
+  });
+
+  if (!record || record.usedAt) {
+    return { valid: false, expired: true };
+  }
+
+  const expired = record.expiresAt < new Date();
+  return {
+    valid: !expired,
+    expired,
+    email: maskEmail(record.user.email),
+  };
+}
+
+export async function resetPassword(token: string, input: ResetPasswordInput) {
+  const record = await prisma.passwordResetToken.findUnique({
+    where: { token },
+  });
+
+  if (!record || record.usedAt || record.expiresAt < new Date()) {
+    throw new AppError('Invalid or expired reset token', 400, 'INVALID_TOKEN');
+  }
+
+  const passwordHash = await bcrypt.hash(input.password, BCRYPT_ROUNDS);
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id: record.userId },
+      data: { passwordHash },
+    }),
+    prisma.passwordResetToken.update({
+      where: { id: record.id },
+      data: { usedAt: new Date() },
+    }),
+    prisma.passwordResetToken.updateMany({
+      where: { userId: record.userId, usedAt: null, id: { not: record.id } },
+      data: { usedAt: new Date() },
+    }),
+  ]);
+
+  return { message: 'Senha redefinida com sucesso' };
+}
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  if (!local || !domain) return '***';
+  const visible = local.slice(0, Math.min(2, local.length));
+  return `${visible}***@${domain}`;
 }

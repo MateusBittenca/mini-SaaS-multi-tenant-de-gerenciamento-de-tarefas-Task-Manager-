@@ -4,6 +4,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useWorkspaceStore } from '../stores/workspaceStore';
 import type {
   AcceptInviteResponse,
+  AppNotification,
   NotificationsResponse,
   PendingInviteNotification,
   Workspace,
@@ -26,6 +27,7 @@ export function useNotifications() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const { workspaces, setWorkspaces } = useWorkspaceStore();
   const [invites, setInvites] = useState<PendingInviteNotification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
@@ -38,6 +40,7 @@ export function useNotifications() {
       setError('');
       const { data: res } = await api.get<{ data: NotificationsResponse }>('/notifications');
       setInvites(res.data.invites);
+      setNotifications(res.data.notifications ?? []);
       setUnreadCount(res.data.unreadCount);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -114,8 +117,31 @@ export function useNotifications() {
     }
   };
 
+  const markAsRead = async (notificationId: string) => {
+    try {
+      await api.patch(`/notifications/${notificationId}/read`);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
+  const markAllAsRead = async () => {
+    try {
+      await api.post('/notifications/read-all');
+      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      setUnreadCount(invites.length);
+    } catch (err) {
+      setError(getErrorMessage(err));
+    }
+  };
+
   return {
     invites,
+    notifications,
     unreadCount,
     loading,
     actionLoading,
@@ -123,6 +149,8 @@ export function useNotifications() {
     fetchNotifications,
     acceptInvite,
     declineInvite,
+    markAsRead,
+    markAllAsRead,
     formatRelativeTime,
   };
 }

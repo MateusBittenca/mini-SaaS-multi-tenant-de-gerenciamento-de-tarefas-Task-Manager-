@@ -50,6 +50,7 @@ export function TaskCard({ task, onDelete, onClick, canDelete, isOverlay }: Task
           ? 'border-terracotta/50 shadow-card-hover rotate-1'
           : `border-sand hover:border-espresso-faint transition-shadow ${onClick ? 'cursor-pointer' : ''}`
       }`}
+      data-testid={`task-card-${task.id}`}
       style={{ boxShadow: isOverlay ? 'var(--shadow-card-hover)' : 'var(--shadow-card)' }}
     >
       <div className="flex items-start justify-between gap-2 mb-2">

@@ -40,6 +40,10 @@ export const transferOwnershipSchema = z.object({
   memberId: z.string().cuid(),
 });
 
+export const workspaceSearchQuerySchema = z.object({
+  q: z.string().min(2).max(100),
+});
+
 export type CreateWorkspaceInput = z.infer<typeof createWorkspaceSchema>;
 export type UpdateWorkspaceInput = z.infer<typeof updateWorkspaceSchema>;
 export type InviteMemberInput = z.infer<typeof inviteMemberSchema>;

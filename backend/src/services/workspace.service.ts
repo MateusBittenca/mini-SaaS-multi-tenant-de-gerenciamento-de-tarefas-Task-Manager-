@@ -3,6 +3,7 @@ import { Role } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { generateUniqueSlug } from '../lib/slug';
+import { sendInviteEmail } from './email.service';
 import { CreateWorkspaceInput, InviteMemberInput, UpdateMemberRoleInput, UpdateWorkspaceInput } from '../schemas/workspace.schema';
 
 export async function listUserWorkspaces(userId: string) {
@@ -124,8 +125,23 @@ export async function inviteMember(
       userId: existingMember?.id ?? null,
       invitedById,
     },
-    include: { workspace: true },
+    include: {
+      workspace: true,
+      invitedBy: { select: { name: true } },
+    },
   });
+
+  const emailSent = await sendInviteEmail({
+    to: invite.email,
+    workspaceName: invite.workspace.name,
+    invitedByName: invite.invitedBy?.name ?? 'Um membro da equipe',
+    role: invite.role,
+    token: invite.token,
+    expiresAt: invite.expiresAt,
+  });
+
+  const isDev = process.env.NODE_ENV !== 'production';
+  const devInviteUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:5173'}/invites/${invite.token}`;
 
   return {
     id: invite.id,
@@ -134,6 +150,8 @@ export async function inviteMember(
     token: invite.token,
     expiresAt: invite.expiresAt,
     workspaceName: invite.workspace.name,
+    emailSent,
+    ...(isDev && !emailSent ? { devInviteUrl } : {}),
   };
 }
 
@@ -493,5 +511,66 @@ export async function getWorkspaceOverview(workspaceId: string) {
     tasksByMember: Array.from(memberMap.values()).sort((a, b) => b.count - a.count),
     topProjects,
     dueSoon,
+  };
+}
+
+export async function searchWorkspace(workspaceId: string, query: string) {
+  const q = query.trim();
+  if (q.length < 2) {
+    throw new AppError('Query must be at least 2 characters', 400, 'INVALID_QUERY');
+  }
+
+  const [tasks, projects] = await Promise.all([
+    prisma.task.findMany({
+      where: {
+        project: { workspaceId },
+        OR: [
+          { title: { contains: q, mode: 'insensitive' } },
+          { description: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        projectId: true,
+        assignee: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true } },
+      },
+      take: 20,
+      orderBy: { updatedAt: 'desc' },
+    }),
+    prisma.project.findMany({
+      where: {
+        workspaceId,
+        OR: [
+          { name: { contains: q, mode: 'insensitive' } },
+          { description: { contains: q, mode: 'insensitive' } },
+        ],
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+      },
+      take: 20,
+      orderBy: { name: 'asc' },
+    }),
+  ]);
+
+  return {
+    tasks: tasks.map((t) => ({
+      id: t.id,
+      title: t.title,
+      status: t.status,
+      projectId: t.projectId,
+      projectName: t.project.name,
+      assignee: t.assignee,
+    })),
+    projects: projects.map((p) => ({
+      id: p.id,
+      name: p.name,
+      description: p.description,
+    })),
   };
 }

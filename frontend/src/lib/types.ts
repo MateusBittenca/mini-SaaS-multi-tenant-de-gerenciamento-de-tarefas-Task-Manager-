@@ -122,6 +122,39 @@ export interface PendingInviteNotification {
 export interface NotificationsResponse {
   unreadCount: number;
   invites: PendingInviteNotification[];
+  notifications: AppNotification[];
+}
+
+export type NotificationType = 'TASK_ASSIGNED' | 'TASK_COMMENTED' | 'TASK_DUE_SOON';
+
+export interface AppNotification {
+  id: string;
+  type: NotificationType;
+  read: boolean;
+  workspaceId: string;
+  taskId: string | null;
+  projectId: string | null;
+  actorId: string | null;
+  actorName: string | null;
+  workspaceName: string | null;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface WorkspaceSearchResult {
+  tasks: {
+    id: string;
+    title: string;
+    status: TaskStatus;
+    projectId: string;
+    projectName: string;
+    assignee: { id: string; name: string } | null;
+  }[];
+  projects: {
+    id: string;
+    name: string;
+    description: string | null;
+  }[];
 }
 
 export interface AcceptInviteResponse {

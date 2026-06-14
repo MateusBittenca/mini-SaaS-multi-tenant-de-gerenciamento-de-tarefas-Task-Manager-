@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import * as authService from '../services/auth.service';
 import { REFRESH_COOKIE_NAME } from '../lib/jwt';
 import { AuthRequest } from '../middlewares/auth';
+import { getParam } from '../lib/params';
 
 export async function register(req: Request, res: Response, next: NextFunction) {
   try {
@@ -60,6 +61,33 @@ export async function updateMe(req: Request, res: Response, next: NextFunction) 
   try {
     const authReq = req as AuthRequest;
     const data = await authService.updateProfile(authReq.userId, req.body);
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function forgotPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await authService.requestPasswordReset(req.body);
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function getResetToken(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await authService.getPasswordResetToken(getParam(req, 'token'));
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}
+
+export async function resetPassword(req: Request, res: Response, next: NextFunction) {
+  try {
+    const data = await authService.resetPassword(getParam(req, 'token'), req.body);
     res.json({ data });
   } catch (error) {
     next(error);

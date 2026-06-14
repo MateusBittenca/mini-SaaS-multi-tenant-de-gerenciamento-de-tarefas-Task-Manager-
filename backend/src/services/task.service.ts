@@ -3,6 +3,7 @@ import { TaskStatus } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { logActivity } from '../lib/activity';
+import { notifyTaskAssigned } from './notification.service';
 import { CreateTaskInput, UpdateTaskInput } from '../schemas/task.schema';
 
 const actorSelect = { id: true, name: true, email: true };
@@ -120,6 +121,20 @@ export async function createTask(
       projectId,
       metadata: { assigneeId: task.assigneeId, assigneeName: task.assignee?.name },
     });
+
+    const actor = await prisma.user.findUnique({
+      where: { id: actorId },
+      select: { name: true },
+    });
+    await notifyTaskAssigned({
+      assigneeId: task.assigneeId,
+      workspaceId,
+      taskId: task.id,
+      projectId,
+      actorId,
+      taskTitle: task.title,
+      actorName: actor?.name ?? 'Alguém',
+    });
   }
 
   return task;
@@ -188,6 +203,22 @@ export async function updateTask(
         previousAssigneeId: task.assigneeId,
       },
     });
+
+    if (input.assigneeId) {
+      const actor = await prisma.user.findUnique({
+        where: { id: actorId },
+        select: { name: true },
+      });
+      await notifyTaskAssigned({
+        assigneeId: input.assigneeId,
+        workspaceId,
+        taskId,
+        projectId: task.projectId,
+        actorId,
+        taskTitle: updated.title,
+        actorName: actor?.name ?? 'Alguém',
+      });
+    }
   }
 
   if (input.dueDate !== undefined) {

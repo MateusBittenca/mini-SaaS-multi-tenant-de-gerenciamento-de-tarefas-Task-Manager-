@@ -16,13 +16,18 @@ const schema = z.object({
 type FormData = z.infer<typeof schema>;
 
 interface InviteMemberFormProps {
-  onSubmit: (data: { email: string; role: Role }) => Promise<{ token: string }>;
+  onSubmit: (data: { email: string; role: Role }) => Promise<{
+    token: string;
+    emailSent?: boolean;
+    devInviteUrl?: string;
+  }>;
 }
 
 export function InviteMemberForm({ onSubmit }: InviteMemberFormProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [inviteLink, setInviteLink] = useState('');
+  const [emailSent, setEmailSent] = useState<boolean | null>(null);
   const [copied, setCopied] = useState(false);
 
   const {
@@ -39,10 +44,13 @@ export function InviteMemberForm({ onSubmit }: InviteMemberFormProps) {
     setLoading(true);
     setError('');
     setInviteLink('');
+    setEmailSent(null);
     try {
       const result = await onSubmit({ email: data.email, role: data.role });
-      const link = `${window.location.origin}/invites/${result.token}`;
+      const link =
+        result.devInviteUrl ?? `${window.location.origin}/invites/${result.token}`;
       setInviteLink(link);
+      setEmailSent(result.emailSent ?? null);
       reset();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao enviar convite');
@@ -92,8 +100,15 @@ export function InviteMemberForm({ onSubmit }: InviteMemberFormProps) {
         </div>
         {error && <Alert>{error}</Alert>}
         {inviteLink && (
-          <Alert variant="success">
-            <p className="mb-2">Convite criado! Compartilhe o link:</p>
+          <Alert variant={emailSent ? 'success' : 'info'}>
+            {emailSent ? (
+              <p className="mb-2">E-mail enviado! O convidado também pode usar este link:</p>
+            ) : (
+              <p className="mb-2">
+                Convite criado. O e-mail não foi enviado (Resend em modo teste). Compartilhe o
+                link:
+              </p>
+            )}
             <div className="flex items-center gap-2 bg-surface/60 rounded-lg p-2 border border-sage/20">
               <code className="text-xs text-espresso break-all flex-1">{inviteLink}</code>
               <button

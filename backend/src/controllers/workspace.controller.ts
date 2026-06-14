@@ -167,3 +167,14 @@ export async function getOverview(req: Request, res: Response, next: NextFunctio
     next(error);
   }
 }
+
+export async function search(req: Request, res: Response, next: NextFunction) {
+  try {
+    const wsReq = req as WorkspaceRequest;
+    const q = req.query.q as string;
+    const data = await workspaceService.searchWorkspace(wsReq.workspaceMember.workspaceId, q);
+    res.json({ data });
+  } catch (error) {
+    next(error);
+  }
+}

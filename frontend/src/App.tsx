@@ -11,6 +11,8 @@ import { MyTasksPage } from './pages/MyTasksPage';
 import { OverviewPage } from './pages/OverviewPage';
 import { AccountPage } from './pages/AccountPage';
 import { AcceptInvitePage } from './pages/AcceptInvitePage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { useAuthStore } from './stores/authStore';
 
 function PublicRoute({ children }: { children: React.ReactNode }) {
@@ -38,6 +40,22 @@ export default function App() {
           element={
             <PublicRoute>
               <RegisterPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <PublicRoute>
+              <ForgotPasswordPage />
+            </PublicRoute>
+          }
+        />
+        <Route
+          path="/reset-password/:token"
+          element={
+            <PublicRoute>
+              <ResetPasswordPage />
             </PublicRoute>
           }
         />
