@@ -1,17 +1,19 @@
 import { useState, useEffect, useMemo, forwardRef, useImperativeHandle, useRef } from 'react';
 import { Search, X } from 'lucide-react';
-import type { Task, WorkspaceMember } from '../lib/types';
+import type { Tag, Task, WorkspaceMember } from '../lib/types';
 
 export interface TaskFilters {
   search: string;
   assigneeId: string;
   priority: string;
   status: string;
+  tagId: string;
 }
 
 interface TaskBoardFiltersProps {
   tasks: Task[];
   members: WorkspaceMember[];
+  tags: Tag[];
   filters: TaskFilters;
   onChange: (filters: TaskFilters) => void;
 }
@@ -21,7 +23,7 @@ export interface TaskBoardFiltersHandle {
 }
 
 export const TaskBoardFilters = forwardRef<TaskBoardFiltersHandle, TaskBoardFiltersProps>(
-  function TaskBoardFilters({ tasks, members, filters, onChange }, ref) {
+  function TaskBoardFilters({ tasks, members, tags, filters, onChange }, ref) {
   const searchRef = useRef<HTMLInputElement>(null);
   const [searchInput, setSearchInput] = useState(filters.search);
 
@@ -41,11 +43,11 @@ export const TaskBoardFilters = forwardRef<TaskBoardFiltersHandle, TaskBoardFilt
   }, [tasks, filters, searchInput]);
 
   const hasFilters =
-    filters.search || filters.assigneeId || filters.priority || filters.status;
+    filters.search || filters.assigneeId || filters.priority || filters.status || filters.tagId;
 
   const clearFilters = () => {
     setSearchInput('');
-    onChange({ search: '', assigneeId: '', priority: '', status: '' });
+    onChange({ search: '', assigneeId: '', priority: '', status: '', tagId: '' });
   };
 
   return (
@@ -94,6 +96,18 @@ export const TaskBoardFilters = forwardRef<TaskBoardFiltersHandle, TaskBoardFilt
           <option value="IN_PROGRESS">Em progresso</option>
           <option value="DONE">Concluído</option>
         </select>
+        <select
+          value={filters.tagId}
+          onChange={(e) => onChange({ ...filters, tagId: e.target.value })}
+          className="px-3 py-2.5 bg-surface border border-sand rounded-lg text-sm text-espresso focus:outline-none focus:ring-2 focus:ring-terracotta/30"
+        >
+          <option value="">Todas tags</option>
+          {tags.map((tag) => (
+            <option key={tag.id} value={tag.id}>
+              {tag.name}
+            </option>
+          ))}
+        </select>
       </div>
       <div className="flex items-center justify-between text-xs text-espresso-faint">
         <span>
@@ -123,6 +137,7 @@ export function applyFilters(tasks: Task[], filters: TaskFilters): Task[] {
     if (filters.assigneeId && t.assigneeId !== filters.assigneeId) return false;
     if (filters.priority && t.priority !== filters.priority) return false;
     if (filters.status && t.status !== filters.status) return false;
+    if (filters.tagId && !t.tags?.some((tag) => tag.id === filters.tagId)) return false;
     return true;
   });
 }

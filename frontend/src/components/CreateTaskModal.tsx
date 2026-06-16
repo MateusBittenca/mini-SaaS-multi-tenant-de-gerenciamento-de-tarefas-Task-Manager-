@@ -6,8 +6,9 @@ import { Modal } from './Modal';
 import { Input } from './Input';
 import { Button } from './Button';
 import { MemberSelect } from './MemberSelect';
+import { TagSelect } from './TagSelect';
 import { dateInputToIso } from '../lib/dates';
-import type { TaskPriority, WorkspaceMember } from '../lib/types';
+import type { Tag, TaskPriority, WorkspaceMember } from '../lib/types';
 
 const schema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -15,6 +16,7 @@ const schema = z.object({
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']).optional(),
   assigneeId: z.string().optional(),
   dueDate: z.string().optional(),
+  tagIds: z.array(z.string()).optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -23,16 +25,18 @@ interface CreateTaskModalProps {
   isOpen: boolean;
   onClose: () => void;
   members: WorkspaceMember[];
+  tags: Tag[];
   onSubmit: (data: {
     title: string;
     description?: string;
     priority?: TaskPriority;
     assigneeId?: string | null;
     dueDate?: string | null;
+    tagIds?: string[];
   }) => Promise<void>;
 }
 
-export function CreateTaskModal({ isOpen, onClose, members, onSubmit }: CreateTaskModalProps) {
+export function CreateTaskModal({ isOpen, onClose, members, tags, onSubmit }: CreateTaskModalProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
@@ -45,10 +49,11 @@ export function CreateTaskModal({ isOpen, onClose, members, onSubmit }: CreateTa
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(schema),
-    defaultValues: { priority: 'MEDIUM' },
+    defaultValues: { priority: 'MEDIUM', tagIds: [] },
   });
 
   const assigneeId = watch('assigneeId') ?? '';
+  const tagIds = watch('tagIds') ?? [];
 
   const handleFormSubmit = async (data: FormData) => {
     setLoading(true);
@@ -60,8 +65,9 @@ export function CreateTaskModal({ isOpen, onClose, members, onSubmit }: CreateTa
         priority: data.priority as TaskPriority,
         assigneeId: data.assigneeId || null,
         dueDate: dateInputToIso(data.dueDate ?? ''),
+        tagIds: data.tagIds?.length ? data.tagIds : undefined,
       });
-      reset({ priority: 'MEDIUM' });
+      reset({ priority: 'MEDIUM', tagIds: [] });
       onClose();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro ao criar tarefa');
@@ -113,6 +119,11 @@ export function CreateTaskModal({ isOpen, onClose, members, onSubmit }: CreateTa
           members={members}
           value={assigneeId}
           onChange={(v) => setValue('assigneeId', v)}
+        />
+        <TagSelect
+          tags={tags}
+          value={tagIds}
+          onChange={(v) => setValue('tagIds', v)}
         />
         {error && <p className="text-sm text-danger">{error}</p>}
         <div className="flex justify-end gap-2 pt-1">

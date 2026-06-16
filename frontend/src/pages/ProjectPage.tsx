@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
-import { ArrowLeft, Plus, Circle, Loader, CheckCircle2, Pencil, Search } from 'lucide-react';
+import { ArrowLeft, Plus, Circle, Loader, CheckCircle2, Pencil, Search, LayoutGrid, Calendar } from 'lucide-react';
 import api, { getErrorMessage } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
 import { useWorkspaceStore } from '../stores/workspaceStore';
-import type { Project, Task, TaskStatus, WorkspaceMember } from '../lib/types';
+import type { Project, Tag, Task, TaskStatus, WorkspaceMember } from '../lib/types';
 import { KanbanBoard } from '../components/KanbanBoard';
+import { CalendarView } from '../components/CalendarView';
 import { CreateTaskModal } from '../components/CreateTaskModal';
 import { TaskDetailModal } from '../components/TaskDetailModal';
 import { TaskBoardFilters, applyFilters, type TaskFilters, type TaskBoardFiltersHandle } from '../components/TaskBoardFilters';
@@ -27,6 +28,7 @@ const defaultFilters: TaskFilters = {
   assigneeId: '',
   priority: '',
   status: '',
+  tagId: '',
 };
 
 export function ProjectPage() {
@@ -37,12 +39,14 @@ export function ProjectPage() {
   const [project, setProject] = useState<Project | null>(null);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<WorkspaceMember[]>([]);
+  const [tags, setTags] = useState<Tag[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filters, setFilters] = useState<TaskFilters>(defaultFilters);
+  const [view, setView] = useState<'kanban' | 'calendar'>('kanban');
   const filtersRef = useRef<TaskBoardFiltersHandle>(null);
 
   const openCreate = useCallback(() => setShowCreate(true), []);
@@ -81,6 +85,12 @@ export function ProjectPage() {
       setProject(projectRes.data.data);
       setTasks(tasksRes.data.data);
       setMembers(membersRes.data.data);
+      try {
+        const tagsRes = await api.get<{ data: Tag[] }>(`/workspaces/${workspaceId}/tags`);
+        setTags(tagsRes.data.data);
+      } catch {
+        setTags([]);
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -108,15 +118,34 @@ export function ProjectPage() {
     priority?: string;
     assigneeId?: string | null;
     dueDate?: string | null;
+    tagIds?: string[];
   }) => {
     const { data: res } = await api.post<{ data: Task }>(`/projects/${projectId}/tasks`, data);
     setTasks([...tasks, res.data]);
   };
 
-  const handleUpdate = async (id: string, data: Partial<Task>) => {
+  const handleUpdate = async (id: string, data: Partial<Task> & { tagIds?: string[] }) => {
     const { data: res } = await api.patch<{ data: Task }>(`/tasks/${id}`, data);
     setTasks((prev) => prev.map((t) => (t.id === id ? res.data : t)));
     setSelectedTask(res.data);
+  };
+
+  const handleSubtasksChange = (taskId: string, subtasks: { completed: boolean }[]) => {
+    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, subtasks } : t)));
+    setSelectedTask((prev) => (prev?.id === taskId ? { ...prev, subtasks } : prev));
+  };
+
+  const handleDueDateChange = async (taskId: string, dueDate: string) => {
+    const previous = [...tasks];
+    setTasks(tasks.map((t) => (t.id === taskId ? { ...t, dueDate } : t)));
+    try {
+      const { data: res } = await api.patch<{ data: Task }>(`/tasks/${taskId}`, { dueDate });
+      setTasks((prev) => prev.map((t) => (t.id === taskId ? res.data : t)));
+      setSelectedTask((prev) => (prev?.id === taskId ? res.data : prev));
+    } catch (err) {
+      setTasks(previous);
+      setError(getErrorMessage(err));
+    }
   };
 
   const handleDelete = async (id: string) => {
@@ -233,10 +262,39 @@ export function ProjectPage() {
 
       {error && <Alert className="mb-6">{error}</Alert>}
 
+      <div className="flex items-center gap-1 mb-4 p-1 bg-cream-dark/60 border border-sand rounded-lg w-fit">
+        <button
+          type="button"
+          onClick={() => setView('kanban')}
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            view === 'kanban'
+              ? 'bg-surface text-espresso shadow-sm'
+              : 'text-espresso-muted hover:text-espresso'
+          }`}
+        >
+          <LayoutGrid className="w-4 h-4" />
+          Kanban
+        </button>
+        <button
+          type="button"
+          onClick={() => setView('calendar')}
+          data-testid="calendar-view-toggle"
+          className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            view === 'calendar'
+              ? 'bg-surface text-espresso shadow-sm'
+              : 'text-espresso-muted hover:text-espresso'
+          }`}
+        >
+          <Calendar className="w-4 h-4" />
+          Calendário
+        </button>
+      </div>
+
       <TaskBoardFilters
         ref={filtersRef}
         tasks={tasks}
         members={members}
+        tags={tags}
         filters={filters}
         onChange={setFilters}
       />
@@ -247,6 +305,13 @@ export function ProjectPage() {
           title="Nenhuma tarefa encontrada"
           description="Tente ajustar os filtros para ver mais resultados."
           action={{ label: 'Limpar filtros', onClick: () => setFilters(defaultFilters) }}
+        />
+      ) : view === 'calendar' ? (
+        <CalendarView
+          tasks={filteredTasks}
+          statusMeta={statusMeta}
+          onTaskClick={setSelectedTask}
+          onDueDateChange={handleDueDateChange}
         />
       ) : (
         <KanbanBoard
@@ -262,15 +327,18 @@ export function ProjectPage() {
         isOpen={showCreate}
         onClose={() => setShowCreate(false)}
         members={members}
+        tags={tags}
         onSubmit={handleCreate}
       />
 
       <TaskDetailModal
         task={selectedTask}
         members={members}
+        tags={tags}
         isOpen={!!selectedTask}
         onClose={() => setSelectedTask(null)}
         onSave={handleUpdate}
+        onSubtasksChange={handleSubtasksChange}
         onDelete={canDelete ? handleDelete : undefined}
         currentUserId={user?.id}
         canDelete={canDelete}

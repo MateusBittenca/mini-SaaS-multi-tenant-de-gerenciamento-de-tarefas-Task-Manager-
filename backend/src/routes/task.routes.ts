@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as taskController from '../controllers/task.controller';
 import * as commentController from '../controllers/comment.controller';
+import * as subtaskController from '../controllers/subtask.controller';
 import * as activityController from '../controllers/activity.controller';
 import { authMiddleware } from '../middlewares/auth';
 import { workspaceMiddleware } from '../middlewares/workspace';
@@ -12,6 +13,11 @@ import {
   taskIdParamSchema,
 } from '../schemas/task.schema';
 import { createCommentSchema, commentIdParamsSchema } from '../schemas/comment.schema';
+import {
+  createSubtaskSchema,
+  updateSubtaskSchema,
+  subtaskIdParamSchema,
+} from '../schemas/subtask.schema';
 import { myTasksQuerySchema } from '../schemas/activity.schema';
 import { workspaceIdParamSchema } from '../schemas/workspace.schema';
 
@@ -58,6 +64,34 @@ router.delete(
   '/tasks/:id',
   validate({ params: taskIdParamSchema }),
   taskController.deleteTask
+);
+
+router.get(
+  '/tasks/:id/subtasks',
+  validate({ params: taskIdParamSchema }),
+  workspaceMiddleware,
+  subtaskController.listSubtasks
+);
+
+router.post(
+  '/tasks/:id/subtasks',
+  validate({ params: taskIdParamSchema, body: createSubtaskSchema }),
+  workspaceMiddleware,
+  subtaskController.createSubtask
+);
+
+router.patch(
+  '/subtasks/:subtaskId',
+  validate({ params: subtaskIdParamSchema, body: updateSubtaskSchema }),
+  workspaceMiddleware,
+  subtaskController.updateSubtask
+);
+
+router.delete(
+  '/subtasks/:subtaskId',
+  validate({ params: subtaskIdParamSchema }),
+  workspaceMiddleware,
+  subtaskController.deleteSubtask
 );
 
 router.get(

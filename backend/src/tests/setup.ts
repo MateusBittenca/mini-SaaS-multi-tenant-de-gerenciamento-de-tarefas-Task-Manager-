@@ -5,8 +5,10 @@ beforeEach(async () => {
   await prisma.notification.deleteMany();
   await prisma.passwordResetToken.deleteMany();
   await prisma.activity.deleteMany();
+  await prisma.subtask.deleteMany();
   await prisma.taskComment.deleteMany();
   await prisma.task.deleteMany();
+  await prisma.tag.deleteMany();
   await prisma.project.deleteMany();
   await prisma.invite.deleteMany();
   await prisma.workspaceMember.deleteMany();

@@ -6,6 +6,7 @@ import authRoutes from './routes/auth.routes';
 import workspaceRoutes from './routes/workspace.routes';
 import projectRoutes from './routes/project.routes';
 import taskRoutes from './routes/task.routes';
+import tagRoutes from './routes/tag.routes';
 import notificationsRoutes from './routes/notifications.routes';
 import inviteRoutes from './routes/invite.routes';
 import { isAppError } from './lib/errors';
@@ -35,6 +36,7 @@ export function createApp() {
   app.use('/api/workspaces', workspaceRoutes);
   app.use('/api', projectRoutes);
   app.use('/api', taskRoutes);
+  app.use('/api', tagRoutes);
 
   app.use(
     (

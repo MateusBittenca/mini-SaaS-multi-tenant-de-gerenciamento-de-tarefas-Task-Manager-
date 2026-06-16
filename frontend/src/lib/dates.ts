@@ -30,3 +30,53 @@ export function isOverdue(dueDate: string | null, status: string): boolean {
   today.setHours(0, 0, 0, 0);
   return new Date(dueDate) < today;
 }
+
+export function toLocalDateKey(iso: string): string {
+  return toDateInputValue(iso);
+}
+
+export function dateKeyToIso(dateKey: string): string {
+  return new Date(`${dateKey}T12:00:00`).toISOString();
+}
+
+const WEEKDAYS = ['Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb', 'Dom'];
+
+export function buildMonthGrid(year: number, month: number) {
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  // Monday-based: Mon=0 ... Sun=6
+  const startOffset = (firstDay.getDay() + 6) % 7;
+  const daysInMonth = lastDay.getDate();
+
+  const cells: { dateKey: string; day: number; inMonth: boolean }[] = [];
+
+  for (let i = 0; i < startOffset; i++) {
+    const d = new Date(year, month, -startOffset + i + 1);
+    cells.push({
+      dateKey: toDateInputValue(d.toISOString()),
+      day: d.getDate(),
+      inMonth: false,
+    });
+  }
+
+  for (let day = 1; day <= daysInMonth; day++) {
+    const dateKey = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    cells.push({ dateKey, day, inMonth: true });
+  }
+
+  while (cells.length % 7 !== 0) {
+    const nextDay = cells.length - startOffset - daysInMonth + 1;
+    const d = new Date(year, month + 1, nextDay);
+    cells.push({
+      dateKey: toDateInputValue(d.toISOString()),
+      day: d.getDate(),
+      inMonth: false,
+    });
+  }
+
+  return { cells, weekdays: WEEKDAYS };
+}
+
+export function isToday(dateKey: string): boolean {
+  return dateKey === toDateInputValue(new Date().toISOString());
+}

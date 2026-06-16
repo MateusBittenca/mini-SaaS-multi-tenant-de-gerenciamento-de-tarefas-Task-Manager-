@@ -22,7 +22,10 @@ Um sistema de gerenciamento de tarefas multi-tenant construído como projeto de 
 ### Produtividade
 - **Visão geral** do workspace com métricas e tarefas com prazo próximo
 - **Minhas tarefas** agrupadas por status e atrasadas
-- **Filtros no board** por texto, responsável, prioridade e status
+- **Filtros no board** por texto, responsável, prioridade, status e tags
+- **Checklist (subtarefas)** dentro de cada tarefa com progresso visual
+- **Tags customizadas** por workspace para categorizar tarefas
+- **Visualização em calendário** por prazo com drag-and-drop para reagendar
 - **Busca global** no workspace (`Cmd/Ctrl+K`) em tarefas e projetos
 - **Atalhos de teclado**: `N` (nova tarefa), `/` (busca no projeto)
 - **Dark mode** na conta do usuário
@@ -263,6 +266,15 @@ cd frontend && npm run test:e2e
 - `POST /api/tasks/:id/comments` — Criar comentário
 - `DELETE /api/tasks/:id/comments/:commentId` — Deletar comentário
 - `GET /api/tasks/:id/activity` — Histórico de atividade
+- `GET /api/tasks/:id/subtasks` — Listar subtarefas
+- `POST /api/tasks/:id/subtasks` — Criar subtarefa
+- `PATCH /api/subtasks/:subtaskId` — Atualizar subtarefa
+- `DELETE /api/subtasks/:subtaskId` — Excluir subtarefa
+
+### Tags
+- `GET /api/workspaces/:workspaceId/tags` — Listar tags do workspace
+- `POST /api/workspaces/:workspaceId/tags` — Criar tag (ADMIN+)
+- `DELETE /api/tags/:id` — Excluir tag (ADMIN+)
 
 ## Licença
 

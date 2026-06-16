@@ -4,9 +4,15 @@ import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { logActivity } from '../lib/activity';
 import { notifyTaskAssigned } from './notification.service';
+import { validateTagIds } from './tag.service';
 import { CreateTaskInput, UpdateTaskInput } from '../schemas/task.schema';
 
 const actorSelect = { id: true, name: true, email: true };
+const taskInclude = {
+  assignee: { select: actorSelect },
+  subtasks: { select: { completed: true } },
+  tags: true,
+} as const;
 
 export async function listTasks(projectId: string, workspaceId: string) {
   const project = await prisma.project.findFirst({
@@ -19,9 +25,7 @@ export async function listTasks(projectId: string, workspaceId: string) {
 
   return prisma.task.findMany({
     where: { projectId },
-    include: {
-      assignee: { select: actorSelect },
-    },
+    include: taskInclude,
     orderBy: { createdAt: 'asc' },
   });
 }
@@ -47,6 +51,7 @@ export async function listMyTasks(
     include: {
       assignee: { select: actorSelect },
       project: { select: { id: true, name: true } },
+      tags: true,
     },
     orderBy: [{ dueDate: 'asc' }, { updatedAt: 'desc' }],
   });
@@ -58,9 +63,7 @@ export async function getTask(taskId: string, workspaceId: string) {
       id: taskId,
       project: { workspaceId },
     },
-    include: {
-      assignee: { select: actorSelect },
-    },
+    include: taskInclude,
   });
 
   if (!task) {
@@ -88,6 +91,10 @@ export async function createTask(
     await validateAssignee(input.assigneeId, workspaceId);
   }
 
+  if (input.tagIds?.length) {
+    await validateTagIds(input.tagIds, workspaceId);
+  }
+
   const task = await prisma.task.create({
     data: {
       projectId,
@@ -97,10 +104,11 @@ export async function createTask(
       priority: input.priority,
       assigneeId: input.assigneeId ?? null,
       dueDate: input.dueDate ? new Date(input.dueDate) : null,
+      ...(input.tagIds?.length && {
+        tags: { connect: input.tagIds.map((id) => ({ id })) },
+      }),
     },
-    include: {
-      assignee: { select: actorSelect },
-    },
+    include: taskInclude,
   });
 
   await logActivity({
@@ -162,6 +170,10 @@ export async function updateTask(
     await validateAssignee(input.assigneeId, workspaceId);
   }
 
+  if (input.tagIds !== undefined) {
+    await validateTagIds(input.tagIds, workspaceId);
+  }
+
   const updated = await prisma.task.update({
     where: { id: taskId },
     data: {
@@ -173,10 +185,11 @@ export async function updateTask(
       ...(input.dueDate !== undefined && {
         dueDate: input.dueDate ? new Date(input.dueDate) : null,
       }),
+      ...(input.tagIds !== undefined && {
+        tags: { set: input.tagIds.map((id) => ({ id })) },
+      }),
     },
-    include: {
-      assignee: { select: actorSelect },
-    },
+    include: taskInclude,
   });
 
   if (input.status !== undefined && input.status !== task.status) {

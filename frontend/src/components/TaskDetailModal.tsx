@@ -6,10 +6,12 @@ import { Modal } from './Modal';
 import { Input } from './Input';
 import { Button } from './Button';
 import { MemberSelect } from './MemberSelect';
+import { TagSelect } from './TagSelect';
 import { TaskComments } from './TaskComments';
+import { TaskSubtasks } from './TaskSubtasks';
 import { TaskActivityList } from './TaskActivityList';
 import { toDateInputValue, dateInputToIso } from '../lib/dates';
-import type { Task, TaskPriority, TaskStatus, WorkspaceMember } from '../lib/types';
+import type { Tag, Task, TaskPriority, TaskStatus, WorkspaceMember } from '../lib/types';
 
 const schema = z.object({
   title: z.string().min(1, 'Título é obrigatório'),
@@ -18,6 +20,7 @@ const schema = z.object({
   priority: z.enum(['LOW', 'MEDIUM', 'HIGH']),
   assigneeId: z.string().optional(),
   dueDate: z.string().optional(),
+  tagIds: z.array(z.string()).optional(),
 });
 
 type FormData = z.infer<typeof schema>;
@@ -25,10 +28,12 @@ type FormData = z.infer<typeof schema>;
 interface TaskDetailModalProps {
   task: Task | null;
   members: WorkspaceMember[];
+  tags: Tag[];
   isOpen: boolean;
   onClose: () => void;
-  onSave: (id: string, data: Partial<Task>) => Promise<void>;
+  onSave: (id: string, data: Partial<Task> & { tagIds?: string[] }) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
+  onSubtasksChange?: (taskId: string, subtasks: { completed: boolean }[]) => void;
   currentUserId?: string;
   canDelete?: boolean;
   canManage?: boolean;
@@ -37,10 +42,12 @@ interface TaskDetailModalProps {
 export function TaskDetailModal({
   task,
   members,
+  tags,
   isOpen,
   onClose,
   onSave,
   onDelete,
+  onSubtasksChange,
   currentUserId,
   canDelete,
   canManage,
@@ -60,6 +67,7 @@ export function TaskDetailModal({
   });
 
   const assigneeId = watch('assigneeId') ?? '';
+  const tagIds = watch('tagIds') ?? [];
 
   useEffect(() => {
     if (task && isOpen) {
@@ -70,6 +78,7 @@ export function TaskDetailModal({
         priority: task.priority,
         assigneeId: task.assigneeId ?? '',
         dueDate: toDateInputValue(task.dueDate),
+        tagIds: task.tags?.map((t) => t.id) ?? [],
       });
       setError('');
     }
@@ -87,6 +96,7 @@ export function TaskDetailModal({
         priority: data.priority as TaskPriority,
         assigneeId: data.assigneeId || null,
         dueDate: dateInputToIso(data.dueDate ?? ''),
+        tagIds: data.tagIds ?? [],
       });
       onClose();
     } catch (err) {
@@ -129,6 +139,11 @@ export function TaskDetailModal({
           />
         </div>
 
+        <TaskSubtasks
+          taskId={task.id}
+          onChange={(subtasks) => onSubtasksChange?.(task.id, subtasks)}
+        />
+
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
             <label className="block text-sm font-medium text-espresso">Status</label>
@@ -169,6 +184,12 @@ export function TaskDetailModal({
             />
           </div>
         </div>
+
+        <TagSelect
+          tags={tags}
+          value={tagIds}
+          onChange={(v) => setValue('tagIds', v)}
+        />
 
         {error && <p className="text-sm text-danger">{error}</p>}
 

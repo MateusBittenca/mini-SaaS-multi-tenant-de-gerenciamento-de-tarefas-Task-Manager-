@@ -33,6 +33,24 @@ export interface TaskAssignee {
   email: string;
 }
 
+export interface Subtask {
+  id: string;
+  taskId: string;
+  title: string;
+  completed: boolean;
+  position: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface Tag {
+  id: string;
+  workspaceId: string;
+  name: string;
+  color: string;
+  createdAt: string;
+}
+
 export interface Task {
   id: string;
   projectId: string;
@@ -46,6 +64,8 @@ export interface Task {
   updatedAt: string;
   assignee?: TaskAssignee | null;
   project?: { id: string; name: string };
+  subtasks?: { completed: boolean }[];
+  tags?: Tag[];
 }
 
 export interface TaskComment {

@@ -1,5 +1,6 @@
 import type { Task, TaskPriority } from '../lib/types';
-import { AlertTriangle, Minus, Trash2, User } from 'lucide-react';
+import { TagPills } from './TagSelect';
+import { AlertTriangle, CheckSquare, Minus, Trash2, User } from 'lucide-react';
 
 const priorityConfig: Record<
   TaskPriority,
@@ -34,6 +35,9 @@ export function TaskCard({ task, onDelete, onClick, canDelete, isOverlay }: Task
     ? new Date(task.dueDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
     : null;
 
+  const subtaskTotal = task.subtasks?.length ?? 0;
+  const subtaskDone = task.subtasks?.filter((s) => s.completed).length ?? 0;
+
   return (
     <div
       role={onClick ? 'button' : undefined}
@@ -54,7 +58,7 @@ export function TaskCard({ task, onDelete, onClick, canDelete, isOverlay }: Task
       style={{ boxShadow: isOverlay ? 'var(--shadow-card-hover)' : 'var(--shadow-card)' }}
     >
       <div className="flex items-start justify-between gap-2 mb-2">
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 flex-wrap">
           <span
             className={`inline-flex items-center gap-1 text-[10px] font-medium px-1.5 py-0.5 rounded-md border ${priority.className}`}
           >
@@ -76,6 +80,8 @@ export function TaskCard({ task, onDelete, onClick, canDelete, isOverlay }: Task
         )}
       </div>
 
+      {task.tags && task.tags.length > 0 && <TagPills tags={task.tags} />}
+
       <h4 className="text-sm font-medium text-espresso leading-snug mb-1">{task.title}</h4>
 
       {task.description && (
@@ -95,9 +101,17 @@ export function TaskCard({ task, onDelete, onClick, canDelete, isOverlay }: Task
         ) : (
           <span />
         )}
-        {dueDate && (
-          <span className="text-[10px] text-espresso-faint">{dueDate}</span>
-        )}
+        <div className="flex items-center gap-2">
+          {subtaskTotal > 0 && (
+            <span className="inline-flex items-center gap-0.5 text-[10px] text-espresso-faint">
+              <CheckSquare className="w-3 h-3" />
+              {subtaskDone}/{subtaskTotal}
+            </span>
+          )}
+          {dueDate && (
+            <span className="text-[10px] text-espresso-faint">{dueDate}</span>
+          )}
+        </div>
       </div>
     </div>
   );
