@@ -10,6 +10,7 @@ import {
   workspaceIdParamSchema,
   projectIdParamSchema,
 } from '../schemas/project.schema';
+import { paginationQuerySchema } from '../schemas/pagination.schema';
 import { z } from 'zod';
 
 const router = Router();
@@ -22,7 +23,7 @@ router.use(authMiddleware);
 
 router.get(
   '/workspaces/:workspaceId/projects',
-  validate({ params: workspaceIdParamSchema }),
+  validate({ params: workspaceIdParamSchema, query: paginationQuerySchema }),
   workspaceMiddleware,
   projectController.listProjects
 );

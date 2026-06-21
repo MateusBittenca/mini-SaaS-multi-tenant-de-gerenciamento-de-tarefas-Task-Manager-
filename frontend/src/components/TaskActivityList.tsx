@@ -1,17 +1,10 @@
-import { useEffect, useState } from 'react';
-import {
-  Circle,
-  Loader,
-  MessageSquare,
-  UserPlus,
-  Calendar,
-  Pencil,
-  Trash2,
-} from 'lucide-react';
-import api, { getErrorMessage } from '../lib/api';
+import { Circle, Loader, MessageSquare, UserPlus, Calendar, Pencil, Trash2 } from 'lucide-react';
+import { getErrorMessage } from '../lib/api';
 import { formatActivityMessage } from '../lib/activityLabels';
 import { formatRelativeTime } from '../lib/dates';
+import { useTaskActivity } from '../hooks/queries/task';
 import type { ActivityType, TaskActivity } from '../lib/types';
+import { Button } from './Button';
 
 const iconByType: Partial<Record<ActivityType, typeof Circle>> = {
   TASK_CREATED: Pencil,
@@ -30,31 +23,26 @@ interface TaskActivityListProps {
 }
 
 export function TaskActivityList({ taskId }: TaskActivityListProps) {
-  const [activities, setActivities] = useState<TaskActivity[]>([]);
-  const [error, setError] = useState('');
+  const {
+    data,
+    isLoading,
+    error,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useTaskActivity(taskId);
 
-  useEffect(() => {
-    if (!taskId) return;
-    const load = async () => {
-      try {
-        const { data: res } = await api.get<{ data: TaskActivity[] }>(`/tasks/${taskId}/activity`);
-        setActivities(res.data);
-      } catch (err) {
-        setError(getErrorMessage(err));
-      }
-    };
-    load();
-  }, [taskId]);
+  const activities = data?.pages.flatMap((page) => page.items) ?? [];
 
   return (
     <div className="space-y-4">
       <h3 className="text-sm font-semibold text-espresso">Histórico</h3>
-      {error && <p className="text-xs text-danger">{error}</p>}
-      {activities.length === 0 ? (
+      {error && <p className="text-xs text-danger">{getErrorMessage(error)}</p>}
+      {activities.length === 0 && !isLoading ? (
         <p className="text-xs text-espresso-faint">Nenhuma atividade registrada.</p>
       ) : (
         <div className="space-y-3 max-h-48 overflow-y-auto">
-          {activities.map((activity) => {
+          {activities.map((activity: TaskActivity) => {
             const Icon = iconByType[activity.type] ?? Circle;
             return (
               <div key={activity.id} className="flex gap-2.5">
@@ -71,6 +59,16 @@ export function TaskActivityList({ taskId }: TaskActivityListProps) {
             );
           })}
         </div>
+      )}
+      {hasNextPage && (
+        <Button
+          variant="ghost"
+          className="text-xs h-8"
+          onClick={() => fetchNextPage()}
+          disabled={isFetchingNextPage}
+        >
+          {isFetchingNextPage ? 'Carregando...' : 'Carregar mais'}
+        </Button>
       )}
     </div>
   );

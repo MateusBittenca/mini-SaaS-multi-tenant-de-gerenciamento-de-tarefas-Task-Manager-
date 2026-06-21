@@ -1,7 +1,12 @@
 import { useEffect, useState } from 'react';
 import { CheckSquare, Trash2 } from 'lucide-react';
-import api, { getErrorMessage } from '../lib/api';
-import type { Subtask } from '../lib/types';
+import { getErrorMessage } from '../lib/api';
+import {
+  useCreateSubtask,
+  useDeleteSubtask,
+  useTaskSubtasks,
+  useUpdateSubtask,
+} from '../hooks/queries/task';
 
 interface TaskSubtasksProps {
   taskId: string;
@@ -9,78 +14,42 @@ interface TaskSubtasksProps {
 }
 
 export function TaskSubtasks({ taskId, onChange }: TaskSubtasksProps) {
-  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [newTitle, setNewTitle] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { data: subtasks = [] } = useTaskSubtasks(taskId);
+  const createSubtask = useCreateSubtask(taskId);
+  const updateSubtask = useUpdateSubtask(taskId);
+  const deleteSubtask = useDeleteSubtask(taskId);
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!taskId) return;
-    const load = async () => {
-      try {
-        const { data: res } = await api.get<{ data: Subtask[] }>(`/tasks/${taskId}/subtasks`);
-        setSubtasks(res.data);
-        onChange?.(res.data.map((s) => ({ completed: s.completed })));
-      } catch (err) {
-        setError(getErrorMessage(err));
-      }
-    };
-    load();
-  }, [taskId]);
-
-  const notifyChange = (items: Subtask[]) => {
-    onChange?.(items.map((s) => ({ completed: s.completed })));
-  };
+    onChange?.(subtasks.map((s) => ({ completed: s.completed })));
+  }, [subtasks, onChange]);
 
   const handleAdd = async () => {
     const title = newTitle.trim();
     if (!title) return;
-    setLoading(true);
     setError('');
     try {
-      const { data: res } = await api.post<{ data: Subtask }>(`/tasks/${taskId}/subtasks`, {
-        title,
-      });
-      const next = [...subtasks, res.data];
-      setSubtasks(next);
-      notifyChange(next);
+      await createSubtask.mutateAsync(title);
       setNewTitle('');
     } catch (err) {
       setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
     }
   };
 
-  const handleToggle = async (subtask: Subtask) => {
-    const next = !subtask.completed;
-    setSubtasks((prev) => {
-      const updated = prev.map((s) => (s.id === subtask.id ? { ...s, completed: next } : s));
-      notifyChange(updated);
-      return updated;
-    });
+  const handleToggle = async (subtaskId: string, completed: boolean) => {
+    setError('');
     try {
-      await api.patch(`/subtasks/${subtask.id}`, { completed: next });
+      await updateSubtask.mutateAsync({ subtaskId, completed: !completed });
     } catch (err) {
-      setSubtasks((prev) => {
-        const reverted = prev.map((s) =>
-          s.id === subtask.id ? { ...s, completed: subtask.completed } : s
-        );
-        notifyChange(reverted);
-        return reverted;
-      });
       setError(getErrorMessage(err));
     }
   };
 
   const handleDelete = async (subtaskId: string) => {
+    setError('');
     try {
-      await api.delete(`/subtasks/${subtaskId}`);
-      setSubtasks((prev) => {
-        const next = prev.filter((s) => s.id !== subtaskId);
-        notifyChange(next);
-        return next;
-      });
+      await deleteSubtask.mutateAsync(subtaskId);
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -123,7 +92,7 @@ export function TaskSubtasks({ taskId, onChange }: TaskSubtasksProps) {
               <input
                 type="checkbox"
                 checked={subtask.completed}
-                onChange={() => handleToggle(subtask)}
+                onChange={() => handleToggle(subtask.id, subtask.completed)}
                 className="w-4 h-4 rounded border-sand text-terracotta focus:ring-terracotta/30 shrink-0"
               />
               <span
@@ -158,7 +127,7 @@ export function TaskSubtasks({ taskId, onChange }: TaskSubtasksProps) {
             }
           }}
           placeholder="Adicionar item..."
-          disabled={loading}
+          disabled={createSubtask.isPending}
           className="flex-1 px-3 py-2 bg-surface border border-sand rounded-lg text-sm text-espresso placeholder:text-espresso-faint focus:outline-none focus:ring-2 focus:ring-terracotta/30 focus:border-terracotta"
         />
       </div>

@@ -1,10 +1,13 @@
 import { prisma } from '../lib/prisma';
 import { AppError } from '../lib/errors';
 import { CreateSubtaskInput, UpdateSubtaskInput } from '../schemas/subtask.schema';
+import { activeTaskInWorkspace } from '../lib/soft-delete';
+import { emitTaskEvent } from '../ws/realtime';
 
 async function getTaskInWorkspace(taskId: string, workspaceId: string) {
   const task = await prisma.task.findFirst({
-    where: { id: taskId, project: { workspaceId } },
+    where: { id: taskId, ...activeTaskInWorkspace(workspaceId) },
+    select: { id: true, projectId: true },
   });
   if (!task) {
     throw new AppError('Task not found', 404, 'NOT_FOUND');
@@ -12,11 +15,15 @@ async function getTaskInWorkspace(taskId: string, workspaceId: string) {
   return task;
 }
 
+function emitSubtaskTaskUpdate(workspaceId: string, taskId: string, projectId: string) {
+  emitTaskEvent({ workspaceId, projectId, taskId, action: 'updated' });
+}
+
 async function getSubtaskInWorkspace(subtaskId: string, workspaceId: string) {
   const subtask = await prisma.subtask.findFirst({
     where: {
       id: subtaskId,
-      task: { project: { workspaceId } },
+      task: activeTaskInWorkspace(workspaceId),
     },
     include: { task: true },
   });
@@ -40,7 +47,7 @@ export async function createSubtask(
   workspaceId: string,
   input: CreateSubtaskInput
 ) {
-  await getTaskInWorkspace(taskId, workspaceId);
+  const task = await getTaskInWorkspace(taskId, workspaceId);
 
   const last = await prisma.subtask.findFirst({
     where: { taskId },
@@ -48,13 +55,16 @@ export async function createSubtask(
     select: { position: true },
   });
 
-  return prisma.subtask.create({
+  const subtask = await prisma.subtask.create({
     data: {
       taskId,
       title: input.title,
       position: (last?.position ?? -1) + 1,
     },
   });
+
+  emitSubtaskTaskUpdate(workspaceId, taskId, task.projectId);
+  return subtask;
 }
 
 export async function updateSubtask(
@@ -62,19 +72,23 @@ export async function updateSubtask(
   workspaceId: string,
   input: UpdateSubtaskInput
 ) {
-  await getSubtaskInWorkspace(subtaskId, workspaceId);
+  const subtask = await getSubtaskInWorkspace(subtaskId, workspaceId);
 
-  return prisma.subtask.update({
+  const updated = await prisma.subtask.update({
     where: { id: subtaskId },
     data: {
       ...(input.title !== undefined && { title: input.title }),
       ...(input.completed !== undefined && { completed: input.completed }),
     },
   });
+
+  emitSubtaskTaskUpdate(workspaceId, subtask.taskId, subtask.task.projectId);
+  return updated;
 }
 
 export async function deleteSubtask(subtaskId: string, workspaceId: string) {
-  await getSubtaskInWorkspace(subtaskId, workspaceId);
+  const subtask = await getSubtaskInWorkspace(subtaskId, workspaceId);
 
   await prisma.subtask.delete({ where: { id: subtaskId } });
+  emitSubtaskTaskUpdate(workspaceId, subtask.taskId, subtask.task.projectId);
 }

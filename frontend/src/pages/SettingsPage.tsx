@@ -1,10 +1,26 @@
 import { useEffect, useState } from 'react';
 import { Navigate, useNavigate, useParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 import { Users, Building2, Tag } from 'lucide-react';
-import api, { getErrorMessage } from '../lib/api';
+import { getErrorMessage } from '../lib/api';
+import { fetchers } from '../lib/fetchers';
+import { queryKeys } from '../lib/queryKeys';
 import { useAuthStore } from '../stores/authStore';
 import { useWorkspaceStore } from '../stores/workspaceStore';
-import type { Role, Tag as TagType, Workspace, WorkspaceMember, PendingWorkspaceInvite } from '../lib/types';
+import type { Role } from '../lib/types';
+import {
+  useCreateTag,
+  useDeleteTag,
+  useInviteMember,
+  useMembers,
+  usePendingInvites,
+  useRemoveMember,
+  useRevokeInvite,
+  useTags,
+  useTransferOwnership,
+  useUpdateMemberRole,
+  useUpdateWorkspace,
+} from '../hooks/queries/members';
 import { MembersList } from '../components/MembersList';
 import { InviteMemberForm } from '../components/InviteMemberForm';
 import { PendingInvitesList } from '../components/PendingInvitesList';
@@ -19,58 +35,50 @@ export function SettingsPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const getActiveWorkspace = useWorkspaceStore((s) => s.getActiveWorkspace);
-  const { workspaces, setWorkspaces, setActiveWorkspace } = useWorkspaceStore();
-  const [members, setMembers] = useState<WorkspaceMember[]>([]);
-  const [pendingInvites, setPendingInvites] = useState<PendingWorkspaceInvite[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { setActiveWorkspace, setWorkspaces } = useWorkspaceStore();
+  const queryClient = useQueryClient();
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [workspaceName, setWorkspaceName] = useState('');
-  const [workspaceSaving, setWorkspaceSaving] = useState(false);
-  const [tags, setTags] = useState<TagType[]>([]);
   const [tagName, setTagName] = useState('');
   const [tagColor, setTagColor] = useState<string>(TAG_COLOR_PRESETS[0]);
-  const [tagSaving, setTagSaving] = useState(false);
 
   const workspace = getActiveWorkspace();
   const canManage = workspace?.role === 'OWNER' || workspace?.role === 'ADMIN';
   const isOwner = workspace?.role === 'OWNER';
 
+  const { data: members = [], isLoading: membersLoading } = useMembers(
+    canManage ? workspaceId : undefined
+  );
+  const { data: pendingInvites = [] } = usePendingInvites(canManage ? workspaceId : undefined);
+  const { data: tags = [] } = useTags(canManage ? workspaceId : undefined);
+
+  const inviteMember = useInviteMember(workspaceId);
+  const updateMemberRole = useUpdateMemberRole(workspaceId);
+  const removeMember = useRemoveMember(workspaceId);
+  const revokeInvite = useRevokeInvite(workspaceId);
+  const createTag = useCreateTag(workspaceId);
+  const deleteTag = useDeleteTag(workspaceId);
+  const updateWorkspace = useUpdateWorkspace(workspaceId);
+  const transferOwnership = useTransferOwnership(workspaceId);
+
   useEffect(() => {
     if (workspace?.name) setWorkspaceName(workspace.name);
   }, [workspace?.name]);
 
-  useEffect(() => {
-    if (workspaceId && canManage) {
-      loadData();
-    }
-  }, [workspaceId, canManage]);
-
-  const loadData = async () => {
-    setLoading(true);
+  const handleInvite = async (data: { email: string; role: Role }): Promise<{
+    token: string;
+    emailSent?: boolean;
+    devInviteUrl?: string;
+  }> => {
+    setError('');
     try {
-      const [membersRes, invitesRes, tagsRes] = await Promise.all([
-        api.get<{ data: WorkspaceMember[] }>(`/workspaces/${workspaceId}/members`),
-        api.get<{ data: PendingWorkspaceInvite[] }>(`/workspaces/${workspaceId}/invites`),
-        api.get<{ data: TagType[] }>(`/workspaces/${workspaceId}/tags`),
-      ]);
-      setMembers(membersRes.data.data);
-      setPendingInvites(invitesRes.data.data);
-      setTags(tagsRes.data.data);
+      return await inviteMember.mutateAsync(data);
     } catch (err) {
       setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
+      throw err;
     }
-  };
-
-  const handleInvite = async (data: { email: string; role: Role }) => {
-    const { data: res } = await api.post<{
-      data: { token: string; emailSent?: boolean; devInviteUrl?: string };
-    }>(`/workspaces/${workspaceId}/invite`, data);
-    await loadData();
-    return res.data;
   };
 
   const handleUpdateRole = async (memberId: string, role: Role) => {
@@ -78,15 +86,10 @@ export function SettingsPage() {
     setError('');
     setSuccess('');
     try {
-      const { data: res } = await api.patch<{ data: WorkspaceMember }>(
-        `/workspaces/${workspaceId}/members/${memberId}`,
-        { role }
-      );
-      setMembers((prev) => prev.map((m) => (m.id === memberId ? res.data : m)));
+      await updateMemberRole.mutateAsync({ memberId, role });
       setSuccess('Função atualizada com sucesso');
     } catch (err) {
       setError(getErrorMessage(err));
-      await loadData();
     } finally {
       setActionLoading(null);
     }
@@ -97,8 +100,7 @@ export function SettingsPage() {
     setError('');
     setSuccess('');
     try {
-      await api.delete(`/workspaces/${workspaceId}/members/${memberId}`);
-      setMembers((prev) => prev.filter((m) => m.id !== memberId));
+      await removeMember.mutateAsync(memberId);
       setSuccess('Membro removido do workspace');
     } catch (err) {
       setError(getErrorMessage(err));
@@ -111,8 +113,7 @@ export function SettingsPage() {
     setActionLoading(inviteId);
     setError('');
     try {
-      await api.delete(`/workspaces/${workspaceId}/invites/${inviteId}`);
-      setPendingInvites((prev) => prev.filter((i) => i.id !== inviteId));
+      await revokeInvite.mutateAsync(inviteId);
       setSuccess('Convite revogado');
     } catch (err) {
       setError(getErrorMessage(err));
@@ -124,41 +125,34 @@ export function SettingsPage() {
   const handleUpdateWorkspace = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!workspaceName.trim()) return;
-    setWorkspaceSaving(true);
     setError('');
     setSuccess('');
     try {
-      await api.patch(`/workspaces/${workspaceId}`, { name: workspaceName.trim() });
-      const { data: res } = await api.get<{ data: Workspace[] }>('/workspaces');
-      setWorkspaces(res.data);
-      const updated = res.data.find((w) => w.id === workspaceId);
-      if (updated) setActiveWorkspace(updated.id);
+      const updated = await updateWorkspace.mutateAsync(workspaceName.trim());
+      const workspaces = await queryClient.fetchQuery({
+        queryKey: queryKeys.workspaces,
+        queryFn: fetchers.workspaces,
+      });
+      setWorkspaces(workspaces);
+      if (workspaceId) setActiveWorkspace(workspaceId);
+      setWorkspaceName(updated.name);
       setSuccess('Workspace atualizado');
     } catch (err) {
       setError(getErrorMessage(err));
-    } finally {
-      setWorkspaceSaving(false);
     }
   };
 
   const handleCreateTag = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!tagName.trim()) return;
-    setTagSaving(true);
     setError('');
     setSuccess('');
     try {
-      const { data: res } = await api.post<{ data: TagType }>(
-        `/workspaces/${workspaceId}/tags`,
-        { name: tagName.trim(), color: tagColor }
-      );
-      setTags((prev) => [...prev, res.data].sort((a, b) => a.name.localeCompare(b.name)));
+      await createTag.mutateAsync({ name: tagName.trim(), color: tagColor });
       setTagName('');
       setSuccess('Tag criada');
     } catch (err) {
       setError(getErrorMessage(err));
-    } finally {
-      setTagSaving(false);
     }
   };
 
@@ -167,8 +161,7 @@ export function SettingsPage() {
     setActionLoading(tagId);
     setError('');
     try {
-      await api.delete(`/tags/${tagId}`);
-      setTags((prev) => prev.filter((t) => t.id !== tagId));
+      await deleteTag.mutateAsync(tagId);
       setSuccess('Tag excluída');
     } catch (err) {
       setError(getErrorMessage(err));
@@ -182,21 +175,13 @@ export function SettingsPage() {
     setError('');
     setSuccess('');
     try {
-      await api.post(`/workspaces/${workspaceId}/transfer-ownership`, { memberId });
-
-      const updatedWorkspaces = workspaces.map((w) =>
-        w.id === workspaceId ? { ...w, role: 'ADMIN' as Role } : w
-      );
-      setWorkspaces(updatedWorkspaces);
-
-      const { data: res } = await api.get<{ data: Workspace[] }>('/workspaces');
-      setWorkspaces(res.data);
-
-      const updated = res.data.find((w) => w.id === workspaceId);
-      if (updated) setActiveWorkspace(updated.id);
-
+      await transferOwnership.mutateAsync(memberId);
+      const workspaces = await queryClient.fetchQuery({
+        queryKey: queryKeys.workspaces,
+        queryFn: fetchers.workspaces,
+      });
+      setWorkspaces(workspaces);
       setSuccess('Propriedade transferida com sucesso');
-      await loadData();
       navigate(`/w/${workspaceId}/settings`);
     } catch (err) {
       setError(getErrorMessage(err));
@@ -244,7 +229,7 @@ export function SettingsPage() {
             value={workspaceName}
             onChange={(e) => setWorkspaceName(e.target.value)}
           />
-          <Button type="submit" size="sm" loading={workspaceSaving}>
+          <Button type="submit" size="sm" loading={updateWorkspace.isPending}>
             Salvar workspace
           </Button>
         </form>
@@ -314,7 +299,7 @@ export function SettingsPage() {
             </div>
           </div>
           <div className="flex items-end">
-            <Button type="submit" size="sm" loading={tagSaving} disabled={!tagName.trim()}>
+            <Button type="submit" size="sm" loading={createTag.isPending} disabled={!tagName.trim()}>
               Criar tag
             </Button>
           </div>
@@ -323,7 +308,7 @@ export function SettingsPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3">
-          {loading ? (
+          {membersLoading ? (
             <LoadingSkeleton variant="list" rows={4} />
           ) : (
             <>

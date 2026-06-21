@@ -6,12 +6,14 @@ import { notifyTaskCommented } from './notification.service';
 import { CreateCommentInput } from '../schemas/comment.schema';
 import { Role } from '@prisma/client';
 import { ROLE_HIERARCHY } from '../middlewares/workspace';
+import { activeTaskInWorkspace } from '../lib/soft-delete';
+import { emitCommentEvent } from '../ws/realtime';
 
 const authorSelect = { id: true, name: true, email: true };
 
 async function getTaskInWorkspace(taskId: string, workspaceId: string) {
   const task = await prisma.task.findFirst({
-    where: { id: taskId, project: { workspaceId } },
+    where: { id: taskId, ...activeTaskInWorkspace(workspaceId) },
   });
   if (!task) {
     throw new AppError('Task not found', 404, 'NOT_FOUND');
@@ -72,6 +74,7 @@ export async function createComment(
     });
   }
 
+  emitCommentEvent({ workspaceId, taskId, action: 'created' });
   return comment;
 }
 
@@ -109,4 +112,6 @@ export async function deleteComment(
     projectId: task.projectId,
     metadata: { commentId },
   });
+
+  emitCommentEvent({ workspaceId, taskId, action: 'deleted' });
 }

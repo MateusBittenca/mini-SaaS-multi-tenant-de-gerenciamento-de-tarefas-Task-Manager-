@@ -5,6 +5,10 @@ import { AppError } from '../lib/errors';
 import { generateUniqueSlug } from '../lib/slug';
 import { sendInviteEmail } from './email.service';
 import { CreateWorkspaceInput, InviteMemberInput, UpdateMemberRoleInput, UpdateWorkspaceInput } from '../schemas/workspace.schema';
+import { PaginationQuery } from '../schemas/pagination.schema';
+import { buildPaginatedResult, getPrismaPaginationArgs } from '../lib/pagination';
+import { searchProjectsInWorkspace, searchTasksInWorkspace } from '../lib/trgm-search';
+import { activeOnly, activeProjectInWorkspace, activeTaskInWorkspace } from '../lib/soft-delete';
 
 export async function listUserWorkspaces(userId: string) {
   const memberships = await prisma.workspaceMember.findMany({
@@ -224,18 +228,19 @@ export async function acceptInvite(token: string, userId: string, userEmail: str
   };
 }
 
-export async function listWorkspaceMembers(workspaceId: string) {
-  const members = await prisma.workspaceMember.findMany({
+export async function listWorkspaceMembers(workspaceId: string, pagination: PaginationQuery) {
+  const rows = await prisma.workspaceMember.findMany({
     where: { workspaceId },
     include: {
       user: {
         select: { id: true, name: true, email: true },
       },
     },
-    orderBy: { joinedAt: 'asc' },
+    orderBy: [{ joinedAt: 'asc' }, { id: 'asc' }],
+    ...getPrismaPaginationArgs(pagination.cursor, pagination.limit),
   });
 
-  return members.map((m) => ({
+  const items = rows.map((m) => ({
     id: m.id,
     userId: m.user.id,
     name: m.user.name,
@@ -243,6 +248,8 @@ export async function listWorkspaceMembers(workspaceId: string) {
     role: m.role,
     joinedAt: m.joinedAt,
   }));
+
+  return buildPaginatedResult(items, pagination.limit);
 }
 
 export async function getInviteByToken(token: string) {
@@ -435,80 +442,114 @@ export async function transferOwnership(
 }
 
 export async function getWorkspaceOverview(workspaceId: string) {
-  const projects = await prisma.project.findMany({
-    where: { workspaceId },
-    select: {
-      id: true,
-      name: true,
-      _count: { select: { tasks: true } },
-    },
-  });
-
-  const tasks = await prisma.task.findMany({
-    where: { project: { workspaceId } },
-    select: {
-      id: true,
-      title: true,
-      status: true,
-      dueDate: true,
-      assigneeId: true,
-      assignee: { select: { id: true, name: true } },
-      project: { select: { id: true, name: true } },
-    },
-  });
-
-  const tasksByStatus = { TODO: 0, IN_PROGRESS: 0, DONE: 0 };
-  for (const task of tasks) {
-    tasksByStatus[task.status]++;
-  }
-
-  const memberMap = new Map<string, { userId: string; name: string; count: number }>();
-  for (const task of tasks) {
-    if (!task.assigneeId || !task.assignee) continue;
-    const existing = memberMap.get(task.assigneeId);
-    if (existing) {
-      existing.count++;
-    } else {
-      memberMap.set(task.assigneeId, {
-        userId: task.assigneeId,
-        name: task.assignee.name,
-        count: 1,
-      });
-    }
-  }
-
-  const topProjects = projects
-    .map((p) => ({ id: p.id, name: p.name, taskCount: p._count.tasks }))
-    .sort((a, b) => b.taskCount - a.taskCount)
-    .slice(0, 5);
-
   const now = new Date();
   now.setHours(0, 0, 0, 0);
   const in7Days = new Date(now);
   in7Days.setDate(in7Days.getDate() + 7);
 
-  const dueSoon = tasks
-    .filter((task) => {
-      if (!task.dueDate || task.status === 'DONE') return false;
-      const due = new Date(task.dueDate);
-      due.setHours(0, 0, 0, 0);
-      return due >= now && due <= in7Days;
-    })
-    .map((task) => ({
-      id: task.id,
-      title: task.title,
-      status: task.status,
-      dueDate: task.dueDate,
-      project: task.project,
-      assignee: task.assignee,
+  const [
+    totalTasks,
+    totalProjects,
+    statusGroups,
+    memberGroups,
+    taskCountsByProject,
+    dueSoon,
+  ] = await Promise.all([
+    prisma.task.count({ where: activeTaskInWorkspace(workspaceId) }),
+    prisma.project.count({ where: activeProjectInWorkspace(workspaceId) }),
+    prisma.task.groupBy({
+      by: ['status'],
+      where: activeTaskInWorkspace(workspaceId),
+      _count: true,
+    }),
+    prisma.task.groupBy({
+      by: ['assigneeId'],
+      where: { ...activeTaskInWorkspace(workspaceId), assigneeId: { not: null } },
+      _count: true,
+    }),
+    prisma.task.groupBy({
+      by: ['projectId'],
+      where: activeTaskInWorkspace(workspaceId),
+      _count: { projectId: true },
+      orderBy: { _count: { projectId: 'desc' } },
+      take: 5,
+    }),
+    prisma.task.findMany({
+      where: {
+        ...activeTaskInWorkspace(workspaceId),
+        status: { not: 'DONE' },
+        dueDate: { gte: now, lte: in7Days },
+      },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        dueDate: true,
+        assignee: { select: { id: true, name: true } },
+        project: { select: { id: true, name: true } },
+      },
+      orderBy: { dueDate: 'asc' },
+    }),
+  ]);
+
+  const tasksByStatus = { TODO: 0, IN_PROGRESS: 0, DONE: 0 };
+  for (const group of statusGroups) {
+    tasksByStatus[group.status]++;
+  }
+
+  const assigneeIds = memberGroups
+    .map((g) => g.assigneeId)
+    .filter((id): id is string => id !== null);
+
+  const assignees =
+    assigneeIds.length > 0
+      ? await prisma.user.findMany({
+          where: { id: { in: assigneeIds } },
+          select: { id: true, name: true },
+        })
+      : [];
+
+  const assigneeMap = new Map(assignees.map((a) => [a.id, a.name]));
+
+  const tasksByMember = memberGroups
+    .filter((g): g is typeof g & { assigneeId: string } => g.assigneeId !== null)
+    .map((g) => ({
+      userId: g.assigneeId,
+      name: assigneeMap.get(g.assigneeId) ?? 'Unknown',
+      count: g._count,
     }))
-    .sort((a, b) => new Date(a.dueDate!).getTime() - new Date(b.dueDate!).getTime());
+    .sort((a, b) => b.count - a.count);
+
+  const projectIds = taskCountsByProject.map((g) => g.projectId);
+  const projectsById =
+    projectIds.length > 0
+      ? new Map(
+          (
+            await prisma.project.findMany({
+              where: { id: { in: projectIds }, ...activeProjectInWorkspace(workspaceId) },
+              select: { id: true, name: true },
+            })
+          ).map((p) => [p.id, p])
+        )
+      : new Map<string, { id: string; name: string }>();
+
+  const topProjects = taskCountsByProject
+    .map((g) => {
+      const project = projectsById.get(g.projectId);
+      if (!project) return null;
+      return {
+        id: project.id,
+        name: project.name,
+        taskCount: g._count.projectId,
+      };
+    })
+    .filter((p): p is NonNullable<typeof p> => p !== null);
 
   return {
-    totalTasks: tasks.length,
-    totalProjects: projects.length,
+    totalTasks,
+    totalProjects,
     tasksByStatus,
-    tasksByMember: Array.from(memberMap.values()).sort((a, b) => b.count - a.count),
+    tasksByMember,
     topProjects,
     dueSoon,
   };
@@ -521,56 +562,9 @@ export async function searchWorkspace(workspaceId: string, query: string) {
   }
 
   const [tasks, projects] = await Promise.all([
-    prisma.task.findMany({
-      where: {
-        project: { workspaceId },
-        OR: [
-          { title: { contains: q, mode: 'insensitive' } },
-          { description: { contains: q, mode: 'insensitive' } },
-        ],
-      },
-      select: {
-        id: true,
-        title: true,
-        status: true,
-        projectId: true,
-        assignee: { select: { id: true, name: true } },
-        project: { select: { id: true, name: true } },
-      },
-      take: 20,
-      orderBy: { updatedAt: 'desc' },
-    }),
-    prisma.project.findMany({
-      where: {
-        workspaceId,
-        OR: [
-          { name: { contains: q, mode: 'insensitive' } },
-          { description: { contains: q, mode: 'insensitive' } },
-        ],
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-      },
-      take: 20,
-      orderBy: { name: 'asc' },
-    }),
+    searchTasksInWorkspace(workspaceId, q),
+    searchProjectsInWorkspace(workspaceId, q),
   ]);
 
-  return {
-    tasks: tasks.map((t) => ({
-      id: t.id,
-      title: t.title,
-      status: t.status,
-      projectId: t.projectId,
-      projectName: t.project.name,
-      assignee: t.assignee,
-    })),
-    projects: projects.map((p) => ({
-      id: p.id,
-      name: p.name,
-      description: p.description,
-    })),
-  };
+  return { tasks, projects };
 }

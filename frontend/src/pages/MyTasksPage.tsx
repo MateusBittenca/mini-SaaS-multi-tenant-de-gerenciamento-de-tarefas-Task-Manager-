@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Circle, Loader, ListTodo, Inbox } from 'lucide-react';
-import api, { getErrorMessage } from '../lib/api';
+import { getErrorMessage } from '../lib/api';
+import { downloadExport } from '../lib/download';
 import { isOverdue } from '../lib/dates';
+import { useMyTasks } from '../hooks/queries/task';
 import type { Task, TaskStatus } from '../lib/types';
 import { Alert } from '../components/Alert';
+import { ExportMenu } from '../components/ExportMenu';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { EmptyState } from '../components/EmptyState';
 
@@ -44,25 +47,16 @@ function TaskRow({ task, workspaceId }: { task: Task; workspaceId: string }) {
 
 export function MyTasksPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { data: tasks = [], isLoading, error } = useMyTasks(workspaceId);
+  const [exporting, setExporting] = useState(false);
 
-  useEffect(() => {
-    if (workspaceId) loadTasks();
-  }, [workspaceId]);
-
-  const loadTasks = async () => {
-    setLoading(true);
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    if (!workspaceId) return;
+    setExporting(true);
     try {
-      const { data: res } = await api.get<{ data: Task[] }>(
-        `/workspaces/${workspaceId}/tasks/mine`
-      );
-      setTasks(res.data);
-    } catch (err) {
-      setError(getErrorMessage(err));
+      await downloadExport(`/workspaces/${workspaceId}/tasks/mine/export`, { format });
     } finally {
-      setLoading(false);
+      setExporting(false);
     }
   };
 
@@ -92,27 +86,32 @@ export function MyTasksPage() {
     ].filter((s) => s.tasks.length > 0);
   }, [tasks]);
 
-  if (loading) {
+  if (isLoading) {
     return <LoadingSkeleton variant="list" rows={5} />;
   }
 
   return (
     <div className="animate-fade-in">
       <div className="mb-8">
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-9 h-9 rounded-xl bg-terracotta-light flex items-center justify-center">
-            <ListTodo className="w-4 h-4 text-terracotta" />
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="w-9 h-9 rounded-xl bg-terracotta-light flex items-center justify-center">
+                <ListTodo className="w-4 h-4 text-terracotta" />
+              </div>
+              <h1 className="font-display text-2xl lg:text-3xl font-semibold text-espresso">
+                Minhas tarefas
+              </h1>
+            </div>
+            <p className="text-espresso-muted text-sm">
+              Tarefas atribuídas a você neste workspace.
+            </p>
           </div>
-          <h1 className="font-display text-2xl lg:text-3xl font-semibold text-espresso">
-            Minhas tarefas
-          </h1>
+          {tasks.length > 0 && <ExportMenu onExport={handleExport} loading={exporting} />}
         </div>
-        <p className="text-espresso-muted text-sm">
-          Tarefas atribuídas a você neste workspace.
-        </p>
       </div>
 
-      {error && <Alert className="mb-6">{error}</Alert>}
+      {error && <Alert className="mb-6">{getErrorMessage(error)}</Alert>}
 
       {tasks.length === 0 ? (
         <EmptyState

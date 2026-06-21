@@ -8,6 +8,7 @@ import { Button } from './Button';
 import { MemberSelect } from './MemberSelect';
 import { TagSelect } from './TagSelect';
 import { TaskComments } from './TaskComments';
+import { TaskAttachments } from './TaskAttachments';
 import { TaskSubtasks } from './TaskSubtasks';
 import { TaskActivityList } from './TaskActivityList';
 import { toDateInputValue, dateInputToIso } from '../lib/dates';
@@ -213,6 +214,7 @@ export function TaskDetailModal({
       </form>
 
       <div className="mt-8 pt-6 border-t border-sand space-y-6">
+        <TaskAttachments taskId={task.id} currentUserId={currentUserId} canManage={canManage} />
         <TaskComments taskId={task.id} currentUserId={currentUserId} canManage={canManage} />
         <TaskActivityList taskId={task.id} />
       </div>

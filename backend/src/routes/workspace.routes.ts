@@ -15,6 +15,7 @@ import {
   updateWorkspaceSchema,
   workspaceSearchQuerySchema,
 } from '../schemas/workspace.schema';
+import { paginationQuerySchema } from '../schemas/pagination.schema';
 import { Role } from '@prisma/client';
 
 const router = Router();
@@ -60,7 +61,7 @@ router.get(
 
 router.get(
   '/:id/members',
-  validate({ params: workspaceIdParamSchema }),
+  validate({ params: workspaceIdParamSchema, query: paginationQuerySchema }),
   workspaceMiddleware,
   workspaceController.listMembers
 );

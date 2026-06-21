@@ -2,11 +2,6 @@ import { Request, Response, NextFunction } from 'express';
 import { verifyAccessToken } from '../lib/jwt';
 import { AppError } from '../lib/errors';
 
-export interface AuthRequest extends Request {
-  userId: string;
-  userEmail: string;
-}
-
 export function authMiddleware(req: Request, _res: Response, next: NextFunction) {
   try {
     const authHeader = req.headers.authorization;
@@ -17,8 +12,9 @@ export function authMiddleware(req: Request, _res: Response, next: NextFunction)
     const token = authHeader.slice(7);
     const payload = verifyAccessToken(token);
 
-    (req as AuthRequest).userId = payload.userId;
-    (req as AuthRequest).userEmail = payload.email;
+    req.userId = payload.userId;
+    req.userEmail = payload.email;
+    req.log = req.log.child({ userId: payload.userId });
 
     next();
   } catch {

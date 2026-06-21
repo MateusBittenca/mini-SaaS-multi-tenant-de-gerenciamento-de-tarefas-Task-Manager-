@@ -1,16 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api, { getErrorMessage } from '../lib/api';
-import { useAuthStore } from '../stores/authStore';
+import { fetchers } from '../lib/fetchers';
+import { queryKeys } from '../lib/queryKeys';
 import { useWorkspaceStore } from '../stores/workspaceStore';
-import type {
-  AcceptInviteResponse,
-  AppNotification,
-  NotificationsResponse,
-  PendingInviteNotification,
-  Workspace,
-} from '../lib/types';
-
-const POLL_INTERVAL = 45_000;
+import type { AcceptInviteResponse, Workspace } from '../lib/types';
 
 function formatRelativeTime(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -24,60 +17,20 @@ function formatRelativeTime(dateStr: string): string {
 }
 
 export function useNotifications() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
+  const queryClient = useQueryClient();
   const { workspaces, setWorkspaces } = useWorkspaceStore();
-  const [invites, setInvites] = useState<PendingInviteNotification[]>([]);
-  const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [unreadCount, setUnreadCount] = useState(0);
-  const [loading, setLoading] = useState(false);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [error, setError] = useState('');
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  const fetchNotifications = useCallback(async () => {
-    if (!isAuthenticated) return;
-    try {
-      setError('');
-      const { data: res } = await api.get<{ data: NotificationsResponse }>('/notifications');
-      setInvites(res.data.invites);
-      setNotifications(res.data.notifications ?? []);
-      setUnreadCount(res.data.unreadCount);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  }, [isAuthenticated]);
+  const query = useQuery({
+    queryKey: queryKeys.notifications,
+    queryFn: fetchers.notifications,
+  });
 
-  useEffect(() => {
-    if (!isAuthenticated) return;
-
-    setLoading(true);
-    fetchNotifications();
-
-    intervalRef.current = setInterval(fetchNotifications, POLL_INTERVAL);
-
-    const handleFocus = () => fetchNotifications();
-    window.addEventListener('focus', handleFocus);
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') fetchNotifications();
-    });
-
-    return () => {
-      if (intervalRef.current) clearInterval(intervalRef.current);
-      window.removeEventListener('focus', handleFocus);
-    };
-  }, [isAuthenticated, fetchNotifications]);
-
-  const acceptInvite = async (inviteId: string): Promise<AcceptInviteResponse | null> => {
-    setActionLoading(inviteId);
-    setError('');
-    try {
-      const { data: res } = await api.post<{ data: AcceptInviteResponse }>(
-        `/invites/${inviteId}/accept`
-      );
-      const result = res.data;
-
+  const acceptInviteMutation = useMutation({
+    mutationFn: (inviteId: string) =>
+      api
+        .post<{ data: AcceptInviteResponse }>(`/invites/${inviteId}/accept`)
+        .then((r) => r.data.data),
+    onSuccess: (result) => {
       if (!result.alreadyMember) {
         const newWorkspace: Workspace = {
           id: result.workspaceId,
@@ -86,71 +39,62 @@ export function useNotifications() {
           role: result.role,
           createdAt: new Date().toISOString(),
         };
-        const exists = workspaces.some((w) => w.id === newWorkspace.id);
-        if (!exists) {
+        if (!workspaces.some((w) => w.id === newWorkspace.id)) {
           setWorkspaces([...workspaces, newWorkspace]);
         }
       }
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+      queryClient.invalidateQueries({ queryKey: queryKeys.workspaces });
+    },
+  });
 
-      setInvites((prev) => prev.filter((i) => i.id !== inviteId));
-      setUnreadCount((c) => Math.max(0, c - 1));
-      return result;
-    } catch (err) {
-      setError(getErrorMessage(err));
-      return null;
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  const declineInviteMutation = useMutation({
+    mutationFn: (inviteId: string) => api.post(`/invites/${inviteId}/decline`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+    },
+  });
 
-  const declineInvite = async (inviteId: string) => {
-    setActionLoading(inviteId);
-    setError('');
-    try {
-      await api.post(`/invites/${inviteId}/decline`);
-      setInvites((prev) => prev.filter((i) => i.id !== inviteId));
-      setUnreadCount((c) => Math.max(0, c - 1));
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setActionLoading(null);
-    }
-  };
+  const markAsReadMutation = useMutation({
+    mutationFn: (notificationId: string) =>
+      api.patch(`/notifications/${notificationId}/read`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+    },
+  });
 
-  const markAsRead = async (notificationId: string) => {
-    try {
-      await api.patch(`/notifications/${notificationId}/read`);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
-      );
-      setUnreadCount((c) => Math.max(0, c - 1));
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  };
+  const markAllAsReadMutation = useMutation({
+    mutationFn: () => api.post('/notifications/read-all'),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.notifications });
+    },
+  });
 
-  const markAllAsRead = async () => {
-    try {
-      await api.post('/notifications/read-all');
-      setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-      setUnreadCount(invites.length);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    }
-  };
+  const data = query.data;
 
   return {
-    invites,
-    notifications,
-    unreadCount,
-    loading,
-    actionLoading,
-    error,
-    fetchNotifications,
-    acceptInvite,
-    declineInvite,
-    markAsRead,
-    markAllAsRead,
+    invites: data?.invites ?? [],
+    notifications: data?.notifications ?? [],
+    unreadCount: data?.unreadCount ?? 0,
+    loading: query.isLoading,
+    actionLoading:
+      acceptInviteMutation.isPending
+        ? acceptInviteMutation.variables
+        : declineInviteMutation.isPending
+          ? declineInviteMutation.variables
+          : null,
+    error: query.error ? getErrorMessage(query.error) : '',
+    fetchNotifications: query.refetch,
+    acceptInvite: async (inviteId: string) => {
+      try {
+        return await acceptInviteMutation.mutateAsync(inviteId);
+      } catch {
+        return null;
+      }
+    },
+    declineInvite: declineInviteMutation.mutateAsync,
+    markAsRead: markAsReadMutation.mutateAsync,
+    markAllAsRead: () => markAllAsReadMutation.mutateAsync(),
     formatRelativeTime,
   };
 }

@@ -2,6 +2,12 @@ export type Role = 'OWNER' | 'ADMIN' | 'MEMBER';
 export type TaskStatus = 'TODO' | 'IN_PROGRESS' | 'DONE';
 export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH';
 
+export interface PaginatedResponse<T> {
+  items: T[];
+  nextCursor: string | null;
+  hasMore: boolean;
+}
+
 export interface User {
   id: string;
   name: string;
@@ -87,7 +93,20 @@ export type ActivityType =
   | 'TASK_DUE_DATE_CHANGED'
   | 'TASK_DELETED'
   | 'COMMENT_ADDED'
-  | 'COMMENT_DELETED';
+  | 'COMMENT_DELETED'
+  | 'ATTACHMENT_ADDED'
+  | 'ATTACHMENT_DELETED';
+
+export interface TaskAttachment {
+  id: string;
+  taskId: string;
+  uploadedById: string;
+  filename: string;
+  mimeType: string;
+  size: number;
+  createdAt: string;
+  uploadedBy: { id: string; name: string; email: string };
+}
 
 export interface TaskActivity {
   id: string;

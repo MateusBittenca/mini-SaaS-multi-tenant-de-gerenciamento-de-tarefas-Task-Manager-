@@ -20,11 +20,16 @@ export interface TokenPayload {
   email: string;
 }
 
+export interface RefreshTokenPayload extends TokenPayload {
+  jti: string;
+  family: string;
+}
+
 export function signAccessToken(payload: TokenPayload): string {
   return jwt.sign(payload, getJwtSecret(), { expiresIn: ACCESS_EXPIRES });
 }
 
-export function signRefreshToken(payload: TokenPayload): string {
+export function signRefreshToken(payload: RefreshTokenPayload): string {
   return jwt.sign(payload, getRefreshSecret(), { expiresIn: REFRESH_EXPIRES });
 }
 
@@ -32,8 +37,8 @@ export function verifyAccessToken(token: string): TokenPayload {
   return jwt.verify(token, getJwtSecret()) as TokenPayload;
 }
 
-export function verifyRefreshToken(token: string): TokenPayload {
-  return jwt.verify(token, getRefreshSecret()) as TokenPayload;
+export function verifyRefreshToken(token: string): RefreshTokenPayload {
+  return jwt.verify(token, getRefreshSecret()) as RefreshTokenPayload;
 }
 
 export const REFRESH_COOKIE_NAME = 'refreshToken';

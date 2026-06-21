@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { FolderKanban, ListTodo, Loader, Search } from 'lucide-react';
-import api, { getErrorMessage } from '../lib/api';
+import { getErrorMessage } from '../lib/api';
+import { useWorkspaceSearch } from '../hooks/queries/task';
 import type { WorkspaceSearchResult } from '../lib/types';
 
 interface GlobalSearchProps {
@@ -14,16 +15,15 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
   const navigate = useNavigate();
   const inputRef = useRef<HTMLInputElement>(null);
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<WorkspaceSearchResult | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [debouncedQuery, setDebouncedQuery] = useState('');
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const { data: results, isFetching, error } = useWorkspaceSearch(workspaceId, debouncedQuery);
 
   useEffect(() => {
     if (open) {
       setQuery('');
-      setResults(null);
-      setError('');
+      setDebouncedQuery('');
       setTimeout(() => inputRef.current?.focus(), 50);
     }
   }, [open]);
@@ -37,42 +37,15 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
     return () => document.removeEventListener('keydown', handleEsc);
   }, [open, onClose]);
 
-  const runSearch = useCallback(
-    async (q: string) => {
-      if (!workspaceId || q.trim().length < 2) {
-        setResults(null);
-        setLoading(false);
-        return;
-      }
-      setLoading(true);
-      setError('');
-      try {
-        const { data: res } = await api.get<{ data: WorkspaceSearchResult }>(
-          `/workspaces/${workspaceId}/search`,
-          { params: { q: q.trim() } }
-        );
-        setResults(res.data);
-      } catch (err) {
-        setError(getErrorMessage(err));
-        setResults(null);
-      } finally {
-        setLoading(false);
-      }
-    },
-    [workspaceId]
-  );
-
-  const handleQueryChange = (value: string) => {
+  const handleQueryChange = useCallback((value: string) => {
     setQuery(value);
     if (debounceRef.current) clearTimeout(debounceRef.current);
     if (value.trim().length < 2) {
-      setResults(null);
-      setLoading(false);
+      setDebouncedQuery('');
       return;
     }
-    setLoading(true);
-    debounceRef.current = setTimeout(() => runSearch(value), 300);
-  };
+    debounceRef.current = setTimeout(() => setDebouncedQuery(value.trim()), 300);
+  }, []);
 
   const goToProject = (projectId: string) => {
     onClose();
@@ -86,9 +59,12 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
 
   if (!open) return null;
 
+  const loading = isFetching && debouncedQuery.length >= 2;
   const hasResults =
     results && (results.tasks.length > 0 || results.projects.length > 0);
-  const isEmpty = results && results.tasks.length === 0 && results.projects.length === 0;
+  const isEmpty =
+    results && results.tasks.length === 0 && results.projects.length === 0;
+  const searchResults = results as WorkspaceSearchResult | undefined;
 
   return (
     <div className="fixed inset-0 z-[100] flex items-start justify-center pt-[15vh] p-4">
@@ -129,7 +105,7 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
           )}
 
           {!loading && error && (
-            <p className="py-6 px-4 text-center text-sm text-danger">{error}</p>
+            <p className="py-6 px-4 text-center text-sm text-danger">{getErrorMessage(error)}</p>
           )}
 
           {!loading && isEmpty && (
@@ -138,13 +114,13 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
 
           {!loading && hasResults && (
             <div className="py-2">
-              {results!.projects.length > 0 && (
+              {searchResults!.projects.length > 0 && (
                 <div>
                   <p className="px-4 py-2 text-[10px] uppercase tracking-widest text-espresso-faint font-medium">
                     Projetos
                   </p>
                   <ul>
-                    {results!.projects.map((project) => (
+                    {searchResults!.projects.map((project) => (
                       <li key={project.id}>
                         <button
                           type="button"
@@ -165,13 +141,13 @@ export function GlobalSearch({ open, onClose }: GlobalSearchProps) {
                 </div>
               )}
 
-              {results!.tasks.length > 0 && (
+              {searchResults!.tasks.length > 0 && (
                 <div>
                   <p className="px-4 py-2 text-[10px] uppercase tracking-widest text-espresso-faint font-medium">
                     Tarefas
                   </p>
                   <ul>
-                    {results!.tasks.map((task) => (
+                    {searchResults!.tasks.map((task) => (
                       <li key={task.id}>
                         <button
                           type="button"

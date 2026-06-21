@@ -4,6 +4,7 @@ import { Building2, Plus, ChevronRight, LogOut } from 'lucide-react';
 import api, { getErrorMessage } from '../lib/api';
 import { useAuthStore } from '../stores/authStore';
 import { useWorkspaceStore } from '../stores/workspaceStore';
+import { useCreateWorkspace, useWorkspaces } from '../hooks/queries/workspace';
 import type { Workspace } from '../lib/types';
 import { Button } from '../components/Button';
 import { Modal } from '../components/Modal';
@@ -24,29 +25,19 @@ export function WorkspacesPage() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
-  const { workspaces, setWorkspaces, setActiveWorkspace } = useWorkspaceStore();
+  const { setWorkspaces, setActiveWorkspace } = useWorkspaceStore();
   const clearWorkspace = useWorkspaceStore((s) => s.clear);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { data: workspaces = [], isLoading, error: queryError } = useWorkspaces();
+  const createWorkspace = useCreateWorkspace();
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
-  const [creating, setCreating] = useState(false);
+  const [error, setError] = useState('');
 
   useEffect(() => {
-    loadWorkspaces();
-  }, []);
-
-  const loadWorkspaces = async () => {
-    setLoading(true);
-    try {
-      const { data: res } = await api.get<{ data: Workspace[] }>('/workspaces');
-      setWorkspaces(res.data);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
+    if (workspaces.length > 0) {
+      setWorkspaces(workspaces);
     }
-  };
+  }, [workspaces, setWorkspaces]);
 
   const selectWorkspace = (workspace: Workspace) => {
     setActiveWorkspace(workspace.id);
@@ -56,19 +47,14 @@ export function WorkspacesPage() {
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newName.trim()) return;
-    setCreating(true);
+    setError('');
     try {
-      const { data: res } = await api.post<{ data: Workspace }>('/workspaces', {
-        name: newName,
-      });
-      setWorkspaces([...workspaces, res.data]);
+      const workspace = await createWorkspace.mutateAsync(newName.trim());
       setNewName('');
       setShowCreate(false);
-      selectWorkspace(res.data);
+      selectWorkspace(workspace);
     } catch (err) {
       setError(getErrorMessage(err));
-    } finally {
-      setCreating(false);
     }
   };
 
@@ -82,6 +68,8 @@ export function WorkspacesPage() {
     clearWorkspace();
     navigate('/login');
   };
+
+  const displayError = error || (queryError ? getErrorMessage(queryError) : '');
 
   return (
     <div className="min-h-screen bg-cream">
@@ -112,9 +100,9 @@ export function WorkspacesPage() {
           </p>
         </div>
 
-        {error && <Alert className="mb-6">{error}</Alert>}
+        {displayError && <Alert className="mb-6">{displayError}</Alert>}
 
-        {loading ? (
+        {isLoading ? (
           <LoadingSkeleton variant="list" rows={3} />
         ) : workspaces.length === 0 ? (
           <EmptyState
@@ -169,7 +157,7 @@ export function WorkspacesPage() {
               <Button type="button" variant="ghost" onClick={() => setShowCreate(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" loading={creating}>
+              <Button type="submit" loading={createWorkspace.isPending}>
                 Criar
               </Button>
             </div>

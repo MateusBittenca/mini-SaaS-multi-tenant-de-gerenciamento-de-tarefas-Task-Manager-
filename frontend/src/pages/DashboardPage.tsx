@@ -1,9 +1,13 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { FolderPlus, Plus } from 'lucide-react';
-import api, { getErrorMessage } from '../lib/api';
+import { getErrorMessage } from '../lib/api';
 import { useWorkspaceStore } from '../stores/workspaceStore';
-import type { Project } from '../lib/types';
+import {
+  useCreateProject,
+  useDeleteProject,
+  useProjects,
+} from '../hooks/queries/workspace';
 import { ProjectCard } from '../components/ProjectCard';
 import { CreateProjectModal } from '../components/CreateProjectModal';
 import { Button } from '../components/Button';
@@ -16,10 +20,22 @@ export function DashboardPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const getActiveWorkspace = useWorkspaceStore((s) => s.getActiveWorkspace);
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
+  const [error, setError] = useState('');
+
+  const {
+    data,
+    isLoading,
+    error: queryError,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useProjects(workspaceId);
+
+  const createProject = useCreateProject(workspaceId);
+  const deleteProject = useDeleteProject(workspaceId);
+
+  const projects = data?.pages.flatMap((page) => page.items) ?? [];
 
   const openCreate = useCallback(() => setShowCreate(true), []);
   useKeyboardShortcuts([{ key: 'n', handler: openCreate, enabled: !showCreate }]);
@@ -30,42 +46,30 @@ export function DashboardPage() {
   useEffect(() => {
     if (workspaceId) {
       setActiveWorkspace(workspaceId);
-      loadProjects();
     }
-  }, [workspaceId]);
-
-  const loadProjects = async () => {
-    if (!workspaceId) return;
-    setLoading(true);
-    try {
-      const { data: res } = await api.get<{ data: Project[] }>(
-        `/workspaces/${workspaceId}/projects`
-      );
-      setProjects(res.data);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, [workspaceId, setActiveWorkspace]);
 
   const handleCreate = async (data: { name: string; description?: string }) => {
-    const { data: res } = await api.post<{ data: Project }>(
-      `/workspaces/${workspaceId}/projects`,
-      data
-    );
-    setProjects([res.data, ...projects]);
+    setError('');
+    try {
+      await createProject.mutateAsync(data);
+    } catch (err) {
+      setError(getErrorMessage(err));
+      throw err;
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir este projeto?')) return;
+    setError('');
     try {
-      await api.delete(`/projects/${id}`);
-      setProjects(projects.filter((p) => p.id !== id));
+      await deleteProject.mutateAsync(id);
     } catch (err) {
       setError(getErrorMessage(err));
     }
   };
+
+  const displayError = error || (queryError ? getErrorMessage(queryError) : '');
 
   return (
     <div className="animate-fade-in">
@@ -87,9 +91,9 @@ export function DashboardPage() {
         </Button>
       </div>
 
-      {error && <Alert className="mb-6">{error}</Alert>}
+      {displayError && <Alert className="mb-6">{displayError}</Alert>}
 
-      {loading ? (
+      {isLoading ? (
         <LoadingSkeleton variant="cards" rows={3} />
       ) : projects.length === 0 ? (
         <EmptyState
@@ -99,16 +103,29 @@ export function DashboardPage() {
           action={{ label: 'Criar projeto', onClick: () => setShowCreate(true) }}
         />
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {projects.map((project) => (
-            <ProjectCard
-              key={project.id}
-              project={project}
-              workspaceId={workspaceId!}
-              onDelete={handleDelete}
-              canDelete={canDelete}
-            />
-          ))}
+        <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            {projects.map((project) => (
+              <ProjectCard
+                key={project.id}
+                project={project}
+                workspaceId={workspaceId!}
+                onDelete={handleDelete}
+                canDelete={canDelete}
+              />
+            ))}
+          </div>
+          {hasNextPage && (
+            <div className="flex justify-center">
+              <Button
+                variant="secondary"
+                onClick={() => fetchNextPage()}
+                disabled={isFetchingNextPage}
+              >
+                {isFetchingNextPage ? 'Carregando...' : 'Carregar mais projetos'}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

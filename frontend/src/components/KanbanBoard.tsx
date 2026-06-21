@@ -8,7 +8,7 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Circle, Loader, CheckCircle2 } from 'lucide-react';
 import type { Task, TaskStatus } from '../lib/types';
 import { KanbanColumn, type ColumnConfig } from './KanbanColumn';
@@ -59,29 +59,54 @@ interface KanbanBoardProps {
 export function KanbanBoard({ tasks, onStatusChange, onDeleteTask, onTaskClick, canDelete }: KanbanBoardProps) {
   const [activeTask, setActiveTask] = useState<Task | null>(null);
   const [activeWidth, setActiveWidth] = useState<number | null>(null);
+  const [pendingStatus, setPendingStatus] = useState<Record<string, TaskStatus>>({});
+
+  const boardTasks = useMemo(
+    () =>
+      tasks.map((task) =>
+        pendingStatus[task.id] ? { ...task, status: pendingStatus[task.id] } : task
+      ),
+    [tasks, pendingStatus]
+  );
+
+  useEffect(() => {
+    setPendingStatus((prev) => {
+      if (Object.keys(prev).length === 0) return prev;
+      const next = { ...prev };
+      let changed = false;
+      for (const taskId of Object.keys(prev)) {
+        const task = tasks.find((t) => t.id === taskId);
+        if (task?.status === prev[taskId]) {
+          delete next[taskId];
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [tasks]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
   );
 
   const getTasksByStatus = (status: TaskStatus) =>
-    tasks.filter((t) => t.status === status);
+    boardTasks.filter((t) => t.status === status);
 
   const handleDragStart = (event: DragStartEvent) => {
-    const task = tasks.find((t) => t.id === event.active.id);
+    const task = boardTasks.find((t) => t.id === event.active.id);
     if (task) setActiveTask(task);
     setActiveWidth(event.active.rect.current?.initial?.width ?? null);
   };
 
-  const handleDragEnd = async (event: DragEndEvent) => {
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event;
     setActiveTask(null);
     setActiveWidth(null);
 
-    const { active, over } = event;
     if (!over) return;
 
     const taskId = active.id as string;
-    const task = tasks.find((t) => t.id === taskId);
+    const task = boardTasks.find((t) => t.id === taskId);
     if (!task) return;
 
     let newStatus: TaskStatus | null = null;
@@ -89,12 +114,19 @@ export function KanbanBoard({ tasks, onStatusChange, onDeleteTask, onTaskClick, 
     if (COLUMNS.some((c) => c.id === over.id)) {
       newStatus = over.id as TaskStatus;
     } else {
-      const overTask = tasks.find((t) => t.id === over.id);
+      const overTask = boardTasks.find((t) => t.id === over.id);
       if (overTask) newStatus = overTask.status;
     }
 
     if (newStatus && newStatus !== task.status) {
-      await onStatusChange(taskId, newStatus);
+      setPendingStatus((prev) => ({ ...prev, [taskId]: newStatus }));
+      void onStatusChange(taskId, newStatus).catch(() => {
+        setPendingStatus((prev) => {
+          const next = { ...prev };
+          delete next[taskId];
+          return next;
+        });
+      });
     }
   };
 
@@ -127,7 +159,7 @@ export function KanbanBoard({ tasks, onStatusChange, onDeleteTask, onTaskClick, 
 
       <DragOverlay
         modifiers={[snapToCursor]}
-        dropAnimation={{ duration: 200, easing: 'cubic-bezier(0.18, 0.67, 0.6, 1)' }}
+        dropAnimation={null}
         style={{ cursor: 'grabbing' }}
       >
         {activeTask ? (

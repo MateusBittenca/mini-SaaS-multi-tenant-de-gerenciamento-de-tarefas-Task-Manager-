@@ -6,6 +6,10 @@ import { logActivity } from '../lib/activity';
 import { notifyTaskAssigned } from './notification.service';
 import { validateTagIds } from './tag.service';
 import { CreateTaskInput, UpdateTaskInput } from '../schemas/task.schema';
+import { PaginationQuery } from '../schemas/pagination.schema';
+import { buildPaginatedResult, getPrismaPaginationArgs } from '../lib/pagination';
+import { activeOnly, activeProjectInWorkspace, activeTaskInWorkspace } from '../lib/soft-delete';
+import { emitTaskEvent } from '../ws/realtime';
 
 const actorSelect = { id: true, name: true, email: true };
 const taskInclude = {
@@ -14,34 +18,41 @@ const taskInclude = {
   tags: true,
 } as const;
 
-export async function listTasks(projectId: string, workspaceId: string) {
+export async function listTasks(
+  projectId: string,
+  workspaceId: string,
+  pagination: PaginationQuery
+) {
   const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
+    where: { id: projectId, ...activeProjectInWorkspace(workspaceId) },
   });
 
   if (!project) {
     throw new AppError('Project not found', 404, 'NOT_FOUND');
   }
 
-  return prisma.task.findMany({
-    where: { projectId },
+  const rows = await prisma.task.findMany({
+    where: { projectId, ...activeOnly },
     include: taskInclude,
-    orderBy: { createdAt: 'asc' },
+    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+    ...getPrismaPaginationArgs(pagination.cursor, pagination.limit),
   });
+
+  return buildPaginatedResult(rows, pagination.limit);
 }
 
 export async function listMyTasks(
   workspaceId: string,
   userId: string,
-  filters?: { status?: string; overdue?: boolean }
+  filters: { status?: string; overdue?: boolean } & PaginationQuery
 ) {
   const now = new Date();
   now.setHours(0, 0, 0, 0);
 
-  return prisma.task.findMany({
+  const rows = await prisma.task.findMany({
     where: {
       assigneeId: userId,
-      project: { workspaceId },
+      ...activeTaskInWorkspace(workspaceId),
       ...(filters?.status && { status: filters.status as TaskStatus }),
       ...(filters?.overdue && {
         dueDate: { lt: now },
@@ -53,15 +64,18 @@ export async function listMyTasks(
       project: { select: { id: true, name: true } },
       tags: true,
     },
-    orderBy: [{ dueDate: 'asc' }, { updatedAt: 'desc' }],
+    orderBy: [{ dueDate: 'asc' }, { id: 'asc' }],
+    ...getPrismaPaginationArgs(filters.cursor, filters.limit),
   });
+
+  return buildPaginatedResult(rows, filters.limit);
 }
 
 export async function getTask(taskId: string, workspaceId: string) {
   const task = await prisma.task.findFirst({
     where: {
       id: taskId,
-      project: { workspaceId },
+      ...activeTaskInWorkspace(workspaceId),
     },
     include: taskInclude,
   });
@@ -80,7 +94,7 @@ export async function createTask(
   actorId: string
 ) {
   const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
+    where: { id: projectId, ...activeProjectInWorkspace(workspaceId) },
   });
 
   if (!project) {
@@ -145,6 +159,13 @@ export async function createTask(
     });
   }
 
+  emitTaskEvent({
+    workspaceId,
+    projectId,
+    taskId: task.id,
+    action: 'created',
+  });
+
   return task;
 }
 
@@ -157,7 +178,7 @@ export async function updateTask(
   const task = await prisma.task.findFirst({
     where: {
       id: taskId,
-      project: { workspaceId },
+      ...activeTaskInWorkspace(workspaceId),
     },
     include: { assignee: { select: actorSelect } },
   });
@@ -266,6 +287,13 @@ export async function updateTask(
     });
   }
 
+  emitTaskEvent({
+    workspaceId,
+    projectId: task.projectId,
+    taskId,
+    action: 'updated',
+  });
+
   return updated;
 }
 
@@ -277,7 +305,7 @@ export async function deleteTask(
   const task = await prisma.task.findFirst({
     where: {
       id: taskId,
-      project: { workspaceId },
+      ...activeTaskInWorkspace(workspaceId),
     },
   });
 
@@ -294,12 +322,22 @@ export async function deleteTask(
     metadata: { title: task.title },
   });
 
-  await prisma.task.delete({ where: { id: taskId } });
+  await prisma.task.update({
+    where: { id: taskId },
+    data: { deletedAt: new Date() },
+  });
+
+  emitTaskEvent({
+    workspaceId,
+    projectId: task.projectId,
+    taskId,
+    action: 'deleted',
+  });
 }
 
 export async function getTaskWithWorkspace(taskId: string) {
   return prisma.task.findFirst({
-    where: { id: taskId },
+    where: { id: taskId, ...activeOnly },
     include: { project: true },
   });
 }

@@ -1,4 +1,4 @@
-import { Router } from 'express';
+import { Router, type NextFunction, type Request, type Response } from 'express';
 import * as taskController from '../controllers/task.controller';
 import * as commentController from '../controllers/comment.controller';
 import * as subtaskController from '../controllers/subtask.controller';
@@ -20,6 +20,13 @@ import {
 } from '../schemas/subtask.schema';
 import { myTasksQuerySchema } from '../schemas/activity.schema';
 import { workspaceIdParamSchema } from '../schemas/workspace.schema';
+import { paginationQuerySchema } from '../schemas/pagination.schema';
+import { attachmentIdParamsSchema } from '../schemas/attachment.schema';
+import { taskExportQuerySchema } from '../schemas/export.schema';
+import { taskAttachmentUpload } from '../lib/upload';
+import * as attachmentController from '../controllers/attachment.controller';
+import * as exportController from '../controllers/export.controller';
+import { mapUploadError } from '../services/attachment.service';
 
 const router = Router();
 
@@ -33,10 +40,24 @@ router.get(
 );
 
 router.get(
+  '/workspaces/:id/tasks/mine/export',
+  validate({ params: workspaceIdParamSchema, query: taskExportQuerySchema }),
+  workspaceMiddleware,
+  exportController.exportMyTasks
+);
+
+router.get(
   '/projects/:projectId/tasks',
-  validate({ params: projectIdParamSchema }),
+  validate({ params: projectIdParamSchema, query: paginationQuerySchema }),
   workspaceMiddleware,
   taskController.listTasks
+);
+
+router.get(
+  '/projects/:projectId/tasks/export',
+  validate({ params: projectIdParamSchema, query: taskExportQuerySchema }),
+  workspaceMiddleware,
+  exportController.exportProjectTasks
 );
 
 router.post(
@@ -117,9 +138,47 @@ router.delete(
 
 router.get(
   '/tasks/:id/activity',
-  validate({ params: taskIdParamSchema }),
+  validate({ params: taskIdParamSchema, query: paginationQuerySchema }),
   workspaceMiddleware,
   activityController.listTaskActivity
+);
+
+router.get(
+  '/tasks/:id/attachments',
+  validate({ params: taskIdParamSchema }),
+  workspaceMiddleware,
+  attachmentController.listAttachments
+);
+
+router.post(
+  '/tasks/:id/attachments',
+  validate({ params: taskIdParamSchema }),
+  workspaceMiddleware,
+  (req: Request, res: Response, next: NextFunction) => {
+    taskAttachmentUpload.single('file')(req, res, (err) => {
+      if (err) {
+        const mapped = mapUploadError(err);
+        next(mapped ?? err);
+        return;
+      }
+      next();
+    });
+  },
+  attachmentController.uploadAttachment
+);
+
+router.get(
+  '/tasks/:id/attachments/:attachmentId/download',
+  validate({ params: attachmentIdParamsSchema }),
+  workspaceMiddleware,
+  attachmentController.downloadAttachment
+);
+
+router.delete(
+  '/tasks/:id/attachments/:attachmentId',
+  validate({ params: attachmentIdParamsSchema }),
+  workspaceMiddleware,
+  attachmentController.deleteAttachment
 );
 
 export default router;

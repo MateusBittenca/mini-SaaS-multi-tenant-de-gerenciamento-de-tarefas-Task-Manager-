@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { Link, useLocation, useParams } from 'react-router-dom';
 import { ArrowLeft, Plus, Circle, Loader, CheckCircle2, Pencil, Search, LayoutGrid, Calendar } from 'lucide-react';
-import api, { getErrorMessage } from '../lib/api';
+import { getErrorMessage } from '../lib/api';
+import { downloadExport } from '../lib/download';
 import { useAuthStore } from '../stores/authStore';
 import { useWorkspaceStore } from '../stores/workspaceStore';
-import type { Project, Tag, Task, TaskStatus, WorkspaceMember } from '../lib/types';
+import { useProject, useUpdateProject } from '../hooks/queries/workspace';
+import { useMembers, useTags } from '../hooks/queries/members';
+import {
+  useCreateTask,
+  useDeleteTask,
+  useProjectTasks,
+  useUpdateTask,
+} from '../hooks/queries/task';
+import type { Task, TaskStatus } from '../lib/types';
 import { KanbanBoard } from '../components/KanbanBoard';
 import { CalendarView } from '../components/CalendarView';
 import { CreateTaskModal } from '../components/CreateTaskModal';
@@ -16,6 +25,7 @@ import { Button } from '../components/Button';
 import { Alert } from '../components/Alert';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 import { EmptyState } from '../components/EmptyState';
+import { ExportMenu } from '../components/ExportMenu';
 
 const statusMeta: Record<TaskStatus, { label: string; icon: typeof Circle; color: string }> = {
   TODO: { label: 'A fazer', icon: Circle, color: '#6B5E54' },
@@ -36,18 +46,31 @@ export function ProjectPage() {
   const location = useLocation();
   const user = useAuthStore((s) => s.user);
   const getActiveWorkspace = useWorkspaceStore((s) => s.getActiveWorkspace);
-  const [project, setProject] = useState<Project | null>(null);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [members, setMembers] = useState<WorkspaceMember[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [showCreate, setShowCreate] = useState(false);
   const [showEditProject, setShowEditProject] = useState(false);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [filters, setFilters] = useState<TaskFilters>(defaultFilters);
   const [view, setView] = useState<'kanban' | 'calendar'>('kanban');
+  const [exporting, setExporting] = useState(false);
   const filtersRef = useRef<TaskBoardFiltersHandle>(null);
+
+  const {
+    data: project,
+    isLoading: projectLoading,
+    error: projectError,
+  } = useProject(workspaceId, projectId);
+  const { data: tasks = [], isLoading: tasksLoading, error: tasksError } = useProjectTasks(projectId);
+  const { data: members = [] } = useMembers(workspaceId);
+  const { data: tags = [] } = useTags(workspaceId);
+
+  const createTask = useCreateTask(projectId, workspaceId);
+  const updateTask = useUpdateTask(projectId, workspaceId);
+  const deleteTask = useDeleteTask(projectId, workspaceId);
+  const updateProject = useUpdateProject(workspaceId, projectId);
+
+  const loading = projectLoading || tasksLoading;
+  const queryError = projectError || tasksError;
 
   const openCreate = useCallback(() => setShowCreate(true), []);
   const focusSearch = useCallback(() => filtersRef.current?.focusSearch(), []);
@@ -62,52 +85,19 @@ export function ProjectPage() {
   const canManage = canDelete;
 
   useEffect(() => {
-    if (projectId && workspaceId) {
-      loadData();
-    }
-  }, [projectId, workspaceId]);
-
-  useEffect(() => {
     const openTaskId = (location.state as { openTaskId?: string } | null)?.openTaskId;
     if (!openTaskId || tasks.length === 0) return;
     const task = tasks.find((t) => t.id === openTaskId);
     if (task) setSelectedTask(task);
   }, [location.state, tasks]);
 
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const [projectRes, tasksRes, membersRes] = await Promise.all([
-        api.get<{ data: Project }>(`/workspaces/${workspaceId}/projects/${projectId}`),
-        api.get<{ data: Task[] }>(`/projects/${projectId}/tasks`),
-        api.get<{ data: WorkspaceMember[] }>(`/workspaces/${workspaceId}/members`),
-      ]);
-      setProject(projectRes.data.data);
-      setTasks(tasksRes.data.data);
-      setMembers(membersRes.data.data);
-      try {
-        const tagsRes = await api.get<{ data: Tag[] }>(`/workspaces/${workspaceId}/tags`);
-        setTags(tagsRes.data.data);
-      } catch {
-        setTags([]);
-      }
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const filteredTasks = useMemo(() => applyFilters(tasks, filters), [tasks, filters]);
 
   const handleStatusChange = async (taskId: string, status: TaskStatus) => {
-    const previous = [...tasks];
-    setTasks(tasks.map((t) => (t.id === taskId ? { ...t, status } : t)));
+    setError('');
     try {
-      const { data: res } = await api.patch<{ data: Task }>(`/tasks/${taskId}`, { status });
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? res.data : t)));
+      await updateTask.mutateAsync({ taskId, data: { status } });
     } catch (err) {
-      setTasks(previous);
       setError(getErrorMessage(err));
     }
   };
@@ -120,37 +110,33 @@ export function ProjectPage() {
     dueDate?: string | null;
     tagIds?: string[];
   }) => {
-    const { data: res } = await api.post<{ data: Task }>(`/projects/${projectId}/tasks`, data);
-    setTasks([...tasks, res.data]);
+    setError('');
+    await createTask.mutateAsync(data);
   };
 
   const handleUpdate = async (id: string, data: Partial<Task> & { tagIds?: string[] }) => {
-    const { data: res } = await api.patch<{ data: Task }>(`/tasks/${id}`, data);
-    setTasks((prev) => prev.map((t) => (t.id === id ? res.data : t)));
-    setSelectedTask(res.data);
+    setError('');
+    const updated = await updateTask.mutateAsync({ taskId: id, data });
+    setSelectedTask(updated);
   };
 
   const handleSubtasksChange = (taskId: string, subtasks: { completed: boolean }[]) => {
-    setTasks((prev) => prev.map((t) => (t.id === taskId ? { ...t, subtasks } : t)));
     setSelectedTask((prev) => (prev?.id === taskId ? { ...prev, subtasks } : prev));
   };
 
   const handleDueDateChange = async (taskId: string, dueDate: string) => {
-    const previous = [...tasks];
-    setTasks(tasks.map((t) => (t.id === taskId ? { ...t, dueDate } : t)));
+    setError('');
     try {
-      const { data: res } = await api.patch<{ data: Task }>(`/tasks/${taskId}`, { dueDate });
-      setTasks((prev) => prev.map((t) => (t.id === taskId ? res.data : t)));
-      setSelectedTask((prev) => (prev?.id === taskId ? res.data : prev));
+      const updated = await updateTask.mutateAsync({ taskId, data: { dueDate } });
+      setSelectedTask((prev) => (prev?.id === taskId ? updated : prev));
     } catch (err) {
-      setTasks(previous);
       setError(getErrorMessage(err));
     }
   };
 
   const handleDelete = async (id: string) => {
-    await api.delete(`/tasks/${id}`);
-    setTasks(tasks.filter((t) => t.id !== id));
+    setError('');
+    await deleteTask.mutateAsync(id);
     setSelectedTask(null);
   };
 
@@ -164,8 +150,25 @@ export function ProjectPage() {
   };
 
   const handleEditProject = async (data: { name: string; description?: string }) => {
-    const { data: res } = await api.patch<{ data: Project }>(`/projects/${projectId}`, data);
-    setProject(res.data);
+    setError('');
+    await updateProject.mutateAsync(data);
+  };
+
+  const handleExport = async (format: 'csv' | 'pdf') => {
+    if (!projectId) return;
+    setExporting(true);
+    try {
+      await downloadExport(`/projects/${projectId}/tasks/export`, {
+        format,
+        search: filters.search || undefined,
+        assigneeId: filters.assigneeId || undefined,
+        priority: filters.priority || undefined,
+        status: filters.status || undefined,
+        tagId: filters.tagId || undefined,
+      });
+    } finally {
+      setExporting(false);
+    }
   };
 
   const counts = {
@@ -174,6 +177,8 @@ export function ProjectPage() {
     DONE: tasks.filter((t) => t.status === 'DONE').length,
   };
   const progress = tasks.length > 0 ? Math.round((counts.DONE / tasks.length) * 100) : 0;
+
+  const displayError = error || (queryError ? getErrorMessage(queryError) : '');
 
   if (loading) {
     return (
@@ -250,17 +255,20 @@ export function ProjectPage() {
             </div>
           </div>
 
-          <Button onClick={openCreate} className="shrink-0">
-            <Plus className="w-4 h-4" />
-            Nova tarefa
-            <kbd className="hidden sm:inline ml-1.5 text-[10px] font-normal opacity-60 border border-current rounded px-1">
-              N
-            </kbd>
-          </Button>
+          <div className="flex gap-2 shrink-0">
+            <ExportMenu onExport={handleExport} loading={exporting} />
+            <Button onClick={openCreate}>
+              <Plus className="w-4 h-4" />
+              Nova tarefa
+              <kbd className="hidden sm:inline ml-1.5 text-[10px] font-normal opacity-60 border border-current rounded px-1">
+                N
+              </kbd>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {error && <Alert className="mb-6">{error}</Alert>}
+      {displayError && <Alert className="mb-6">{displayError}</Alert>}
 
       <div className="flex items-center gap-1 mb-4 p-1 bg-cream-dark/60 border border-sand rounded-lg w-fit">
         <button

@@ -1,6 +1,10 @@
+import { createChildLogger } from '../lib/logger';
+
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 const EMAIL_FROM = process.env.EMAIL_FROM ?? 'Task Manager <onboarding@resend.dev>';
 const FRONTEND_URL = process.env.FRONTEND_URL ?? 'http://localhost:5173';
+
+const emailLogger = createChildLogger({ service: 'email' });
 
 const ROLE_LABELS: Record<string, string> = {
   OWNER: 'Proprietário',
@@ -95,9 +99,10 @@ async function sendEmail(params: {
   logLink?: string;
 }): Promise<boolean> {
   if (!RESEND_API_KEY) {
-    console.log(`[email] RESEND_API_KEY não configurada — ${params.logLabel}:`);
-    console.log(`  Para: ${params.to}`);
-    if (params.logLink) console.log(`  Link: ${params.logLink}`);
+    emailLogger.warn(
+      { to: params.to, logLabel: params.logLabel, logLink: params.logLink },
+      'RESEND_API_KEY not configured'
+    );
     return false;
   }
 
@@ -118,18 +123,23 @@ async function sendEmail(params: {
 
     if (!response.ok) {
       const body = await response.text();
-      console.error(`[email] Falha ao enviar (${params.logLabel}):`, response.status, body);
-      if (params.logLink) {
-        console.log(`[email] Use este link manualmente (${params.logLabel}):`);
-        console.log(`  Para: ${params.to}`);
-        console.log(`  Link: ${params.logLink}`);
-      }
+      emailLogger.error(
+        {
+          status: response.status,
+          body,
+          to: params.to,
+          logLabel: params.logLabel,
+          logLink: params.logLink,
+        },
+        'email send failed'
+      );
       return false;
     }
 
+    emailLogger.info({ to: params.to, logLabel: params.logLabel }, 'email sent');
     return true;
   } catch (err) {
-    console.error(`[email] Erro ao enviar (${params.logLabel}):`, err);
+    emailLogger.error({ err, to: params.to, logLabel: params.logLabel }, 'email send error');
     return false;
   }
 }

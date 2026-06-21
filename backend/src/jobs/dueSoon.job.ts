@@ -1,19 +1,20 @@
+import { scheduleJob } from '../lib/scheduler';
+import { createChildLogger } from '../lib/logger';
 import { processDueSoonNotifications } from '../services/notification.service';
 
-const INTERVAL_MS = 60 * 60 * 1000;
+const jobLogger = createChildLogger({ job: 'dueSoon' });
+const DUE_SOON_CRON = process.env.DUE_SOON_CRON ?? '0 * * * *';
 
 export function startDueSoonJob() {
-  const run = async () => {
-    try {
+  scheduleJob({
+    name: 'dueSoon',
+    cron: DUE_SOON_CRON,
+    runOnInit: true,
+    handler: async () => {
       const count = await processDueSoonNotifications();
       if (count > 0) {
-        console.log(`[notifications] ${count} notificação(ões) de prazo criada(s)`);
+        jobLogger.info({ count }, 'due soon notifications created');
       }
-    } catch (err) {
-      console.error('[notifications] Erro no job de prazos:', err);
-    }
-  };
-
-  run();
-  setInterval(run, INTERVAL_MS);
+    },
+  });
 }

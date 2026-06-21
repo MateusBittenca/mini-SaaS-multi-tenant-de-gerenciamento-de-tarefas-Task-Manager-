@@ -1,17 +1,14 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response } from 'express';
 import * as activityService from '../services/activity.service';
-import { WorkspaceRequest } from '../middlewares/workspace';
+import { asyncHandler } from '../lib/asyncHandler';
 import { getParam } from '../lib/params';
+import { getPaginationFromRequest } from '../lib/pagination';
 
-export async function listTaskActivity(req: Request, res: Response, next: NextFunction) {
-  try {
-    const wsReq = req as WorkspaceRequest;
-    const data = await activityService.listTaskActivity(
-      getParam(req, 'id'),
-      wsReq.workspaceMember.workspaceId
-    );
-    res.json({ data });
-  } catch (error) {
-    next(error);
-  }
-}
+export const listTaskActivity = asyncHandler(async (req: Request, res: Response) => {
+  const data = await activityService.listTaskActivity(
+    getParam(req, 'id'),
+    req.workspaceMember!.workspaceId,
+    getPaginationFromRequest(req)
+  );
+  res.json({ data });
+});

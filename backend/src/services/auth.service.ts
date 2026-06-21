@@ -12,6 +12,12 @@ import {
 } from '../lib/jwt';
 import { sendPasswordResetEmail } from './email.service';
 import {
+  createRefreshToken,
+  rotateRefreshToken,
+  revokeRefreshToken,
+  revokeAllUserRefreshTokens,
+} from './refresh-token.service';
+import {
   RegisterInput,
   LoginInput,
   UpdateProfileInput,
@@ -44,6 +50,23 @@ function setRefreshCookie(res: Response, token: string) {
   });
 }
 
+async function issueTokens(
+  user: { id: string; email: string; name: string; createdAt: Date },
+  res: Response
+) {
+  const { jti, family } = await createRefreshToken(user.id);
+  const payload = { userId: user.id, email: user.email };
+  const accessToken = signAccessToken(payload);
+  const refreshToken = signRefreshToken({ ...payload, jti, family });
+
+  setRefreshCookie(res, refreshToken);
+
+  return {
+    user: sanitizeUser(user),
+    accessToken,
+  };
+}
+
 export async function registerUser(input: RegisterInput, res: Response) {
   const existing = await prisma.user.findUnique({ where: { email: input.email } });
   if (existing) {
@@ -60,16 +83,7 @@ export async function registerUser(input: RegisterInput, res: Response) {
     },
   });
 
-  const payload = { userId: user.id, email: user.email };
-  const accessToken = signAccessToken(payload);
-  const refreshToken = signRefreshToken(payload);
-
-  setRefreshCookie(res, refreshToken);
-
-  return {
-    user: sanitizeUser(user),
-    accessToken,
-  };
+  return issueTokens(user, res);
 }
 
 export async function loginUser(input: LoginInput, res: Response) {
@@ -83,19 +97,10 @@ export async function loginUser(input: LoginInput, res: Response) {
     throw new AppError('Invalid credentials', 401, 'INVALID_CREDENTIALS');
   }
 
-  const payload = { userId: user.id, email: user.email };
-  const accessToken = signAccessToken(payload);
-  const refreshToken = signRefreshToken(payload);
-
-  setRefreshCookie(res, refreshToken);
-
-  return {
-    user: sanitizeUser(user),
-    accessToken,
-  };
+  return issueTokens(user, res);
 }
 
-export async function refreshAccessToken(refreshToken: string) {
+export async function refreshAccessToken(refreshToken: string, res: Response) {
   try {
     const payload = verifyRefreshToken(refreshToken);
     const user = await prisma.user.findUnique({ where: { id: payload.userId } });
@@ -103,14 +108,33 @@ export async function refreshAccessToken(refreshToken: string) {
       throw new AppError('User not found', 401, 'UNAUTHORIZED');
     }
 
-    const accessToken = signAccessToken({ userId: user.id, email: user.email });
+    const { jti, family } = await rotateRefreshToken(
+      payload.jti,
+      payload.userId,
+      payload.family
+    );
+
+    const tokenPayload = { userId: user.id, email: user.email };
+    const newRefreshToken = signRefreshToken({ ...tokenPayload, jti, family });
+    setRefreshCookie(res, newRefreshToken);
+
+    const accessToken = signAccessToken(tokenPayload);
     return { accessToken, user: sanitizeUser(user) };
-  } catch {
+  } catch (error) {
+    if (error instanceof AppError) throw error;
     throw new AppError('Invalid refresh token', 401, 'UNAUTHORIZED');
   }
 }
 
-export function logoutUser(res: Response) {
+export async function logoutUser(refreshToken: string | undefined, res: Response) {
+  if (refreshToken) {
+    try {
+      const payload = verifyRefreshToken(refreshToken);
+      await revokeRefreshToken(payload.jti);
+    } catch {
+      // Token inválido no logout — apenas limpa o cookie
+    }
+  }
   res.clearCookie(REFRESH_COOKIE_NAME, { path: '/api/auth' });
 }
 
@@ -144,6 +168,10 @@ export async function updateProfile(userId: string, input: UpdateProfileInput) {
       }),
     },
   });
+
+  if (input.newPassword) {
+    await revokeAllUserRefreshTokens(userId);
+  }
 
   return sanitizeUser(updated);
 }
@@ -235,6 +263,8 @@ export async function resetPassword(token: string, input: ResetPasswordInput) {
       data: { usedAt: new Date() },
     }),
   ]);
+
+  await revokeAllUserRefreshTokens(record.userId);
 
   return { message: 'Senha redefinida com sucesso' };
 }

@@ -33,6 +33,10 @@ export function formatActivityMessage(activity: TaskActivity): string {
       return `${name} comentou`;
     case 'COMMENT_DELETED':
       return `${name} removeu um comentário`;
+    case 'ATTACHMENT_ADDED':
+      return `${name} anexou ${String(meta.filename ?? 'um arquivo')}`;
+    case 'ATTACHMENT_DELETED':
+      return `${name} removeu um anexo`;
     default:
       return `${name} realizou uma ação`;
   }

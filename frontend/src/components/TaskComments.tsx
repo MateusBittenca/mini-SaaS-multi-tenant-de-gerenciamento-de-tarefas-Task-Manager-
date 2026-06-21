@@ -1,8 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Trash2 } from 'lucide-react';
-import api, { getErrorMessage } from '../lib/api';
+import { getErrorMessage } from '../lib/api';
 import { formatRelativeTime } from '../lib/dates';
 import type { TaskComment } from '../lib/types';
+import {
+  useCreateComment,
+  useDeleteComment,
+  useTaskComments,
+} from '../hooks/queries/task';
 import { Button } from './Button';
 
 interface TaskCommentsProps {
@@ -12,46 +17,28 @@ interface TaskCommentsProps {
 }
 
 export function TaskComments({ taskId, currentUserId, canManage }: TaskCommentsProps) {
-  const [comments, setComments] = useState<TaskComment[]>([]);
   const [content, setContent] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { data: comments = [] } = useTaskComments(taskId);
+  const createComment = useCreateComment(taskId);
+  const deleteComment = useDeleteComment(taskId);
   const [error, setError] = useState('');
-
-  useEffect(() => {
-    if (!taskId) return;
-    const load = async () => {
-      try {
-        const { data: res } = await api.get<{ data: TaskComment[] }>(`/tasks/${taskId}/comments`);
-        setComments(res.data);
-      } catch (err) {
-        setError(getErrorMessage(err));
-      }
-    };
-    load();
-  }, [taskId]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!content.trim()) return;
-    setLoading(true);
     setError('');
     try {
-      const { data: res } = await api.post<{ data: TaskComment }>(`/tasks/${taskId}/comments`, {
-        content: content.trim(),
-      });
-      setComments((prev) => [...prev, res.data]);
+      await createComment.mutateAsync(content.trim());
       setContent('');
     } catch (err) {
       setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
     }
   };
 
   const handleDelete = async (commentId: string) => {
+    setError('');
     try {
-      await api.delete(`/tasks/${taskId}/comments/${commentId}`);
-      setComments((prev) => prev.filter((c) => c.id !== commentId));
+      await deleteComment.mutateAsync(commentId);
     } catch (err) {
       setError(getErrorMessage(err));
     }
@@ -65,7 +52,7 @@ export function TaskComments({ taskId, currentUserId, canManage }: TaskCommentsP
         <p className="text-xs text-espresso-faint">Nenhum comentário ainda.</p>
       ) : (
         <div className="space-y-3 max-h-48 overflow-y-auto">
-          {comments.map((comment) => {
+          {comments.map((comment: TaskComment) => {
             const canDelete = comment.authorId === currentUserId || canManage;
             const initials = comment.author.name
               .split(' ')
@@ -114,7 +101,7 @@ export function TaskComments({ taskId, currentUserId, canManage }: TaskCommentsP
         />
         {error && <p className="text-xs text-danger">{error}</p>}
         <div className="flex justify-end">
-          <Button type="submit" size="sm" loading={loading} disabled={!content.trim()}>
+          <Button type="submit" size="sm" loading={createComment.isPending} disabled={!content.trim()}>
             Comentar
           </Button>
         </div>

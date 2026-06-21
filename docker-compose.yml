@@ -37,6 +37,9 @@ services:
       EMAIL_FROM: ${EMAIL_FROM:-Task Manager <onboarding@resend.dev>}
       PORT: 3000
       NODE_ENV: production
+      UPLOAD_DIR: /app/uploads
+    volumes:
+      - uploads_data:/app/uploads
     networks:
       - taskmanager-network
 
@@ -57,6 +60,7 @@ services:
 
 volumes:
   pgdata:
+  uploads_data:
 
 networks:
   taskmanager-network:

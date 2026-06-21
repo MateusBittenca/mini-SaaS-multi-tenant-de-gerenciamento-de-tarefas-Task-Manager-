@@ -1,17 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import {
-  BarChart3,
-  CalendarClock,
-  CheckCircle2,
-  Circle,
-  FolderKanban,
-  Loader,
-  Users,
-} from 'lucide-react';
-import api, { getErrorMessage } from '../lib/api';
+import { BarChart3, CalendarClock, CheckCircle2, Circle, FolderKanban, Loader, Users } from 'lucide-react';
+import { getErrorMessage } from '../lib/api';
 import { useWorkspaceStore } from '../stores/workspaceStore';
-import type { TaskStatus, WorkspaceOverview } from '../lib/types';
+import { useOverview } from '../hooks/queries/workspace';
+import type { TaskStatus } from '../lib/types';
 import { Alert } from '../components/Alert';
 import { LoadingSkeleton } from '../components/LoadingSkeleton';
 
@@ -31,33 +24,15 @@ function formatDueDate(iso: string) {
 export function OverviewPage() {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const setActiveWorkspace = useWorkspaceStore((s) => s.setActiveWorkspace);
-  const [overview, setOverview] = useState<WorkspaceOverview | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { data: overview, isLoading, error } = useOverview(workspaceId);
 
   useEffect(() => {
     if (workspaceId) {
       setActiveWorkspace(workspaceId);
-      loadOverview();
     }
-  }, [workspaceId]);
+  }, [workspaceId, setActiveWorkspace]);
 
-  const loadOverview = async () => {
-    if (!workspaceId) return;
-    setLoading(true);
-    try {
-      const { data: res } = await api.get<{ data: WorkspaceOverview }>(
-        `/workspaces/${workspaceId}/overview`
-      );
-      setOverview(res.data);
-    } catch (err) {
-      setError(getErrorMessage(err));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="animate-fade-in">
         <div className="skeleton h-8 w-56 rounded-lg mb-8" />
@@ -67,7 +42,7 @@ export function OverviewPage() {
   }
 
   if (!overview) {
-    return error ? <Alert>{error}</Alert> : null;
+    return error ? <Alert>{getErrorMessage(error)}</Alert> : null;
   }
 
   const maxStatus = Math.max(...Object.values(overview.tasksByStatus), 1);
@@ -84,8 +59,6 @@ export function OverviewPage() {
           {overview.totalTasks} {overview.totalTasks === 1 ? 'tarefa' : 'tarefas'}
         </p>
       </div>
-
-      {error && <Alert className="mb-6">{error}</Alert>}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 mb-5">
         <section className="bg-surface border border-sand rounded-2xl p-6 shadow-[var(--shadow-card)]">

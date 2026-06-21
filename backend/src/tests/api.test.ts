@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { Role } from '@prisma/client';
 import { prisma } from '../lib/prisma';
+import { REFRESH_COOKIE_NAME, verifyRefreshToken } from '../lib/jwt';
 import {
   app,
   request,
@@ -10,6 +11,13 @@ import {
   authHeader,
   workspaceHeader,
 } from './helpers';
+
+function parseRefreshCookie(setCookie: string | string[] | undefined): string {
+  const cookies = Array.isArray(setCookie) ? setCookie : setCookie ? [setCookie] : [];
+  const refresh = cookies.find((c) => c.startsWith(`${REFRESH_COOKIE_NAME}=`));
+  if (!refresh) throw new Error('No refresh cookie');
+  return refresh.split(';')[0].split('=')[1];
+}
 
 describe('API integration', () => {
   it('registra e faz login de usuário', async () => {
@@ -31,6 +39,78 @@ describe('API integration', () => {
 
     expect(loginRes.status).toBe(200);
     expect(loginRes.body.data.accessToken).toBeDefined();
+  });
+
+  it('rotaciona refresh token no endpoint /refresh', async () => {
+    const agent = request.agent(app);
+
+    const registerRes = await agent.post('/api/auth/register').send({
+      name: 'Refresh User',
+      email: 'refresh@example.com',
+      password: 'password123',
+    });
+
+    expect(registerRes.status).toBe(201);
+    const oldToken = parseRefreshCookie(registerRes.headers['set-cookie']);
+
+    const refreshRes = await agent.post('/api/auth/refresh');
+    expect(refreshRes.status).toBe(200);
+    expect(refreshRes.body.data.accessToken).toBeDefined();
+
+    const newToken = parseRefreshCookie(refreshRes.headers['set-cookie']);
+    expect(newToken).not.toBe(oldToken);
+
+    const { jti: oldJti } = verifyRefreshToken(oldToken);
+    const oldRecord = await prisma.refreshToken.findUnique({ where: { id: oldJti } });
+    expect(oldRecord?.revokedAt).not.toBeNull();
+  });
+
+  it('detecta reuso de refresh token e invalida familia', async () => {
+    const agent = request.agent(app);
+
+    const registerRes = await agent.post('/api/auth/register').send({
+      name: 'Reuse User',
+      email: 'reuse@example.com',
+      password: 'password123',
+    });
+
+    const stolenToken = parseRefreshCookie(registerRes.headers['set-cookie']);
+
+    await agent.post('/api/auth/refresh');
+
+    const reuseRes = await request(app)
+      .post('/api/auth/refresh')
+      .set('Cookie', `${REFRESH_COOKIE_NAME}=${stolenToken}`);
+
+    expect(reuseRes.status).toBe(401);
+    expect(reuseRes.body.error.code).toBe('TOKEN_REUSE');
+
+    const afterTheftRes = await agent.post('/api/auth/refresh');
+    expect(afterTheftRes.status).toBe(401);
+  });
+
+  it('revoga refresh token no logout', async () => {
+    const agent = request.agent(app);
+
+    const registerRes = await agent.post('/api/auth/register').send({
+      name: 'Logout User',
+      email: 'logout@example.com',
+      password: 'password123',
+    });
+
+    const token = parseRefreshCookie(registerRes.headers['set-cookie']);
+
+    const logoutRes = await agent.post('/api/auth/logout');
+    expect(logoutRes.status).toBe(200);
+
+    const refreshRes = await agent
+      .post('/api/auth/refresh')
+      .set('Cookie', `${REFRESH_COOKIE_NAME}=${token}`);
+    expect(refreshRes.status).toBe(401);
+
+    const { jti } = verifyRefreshToken(token);
+    const record = await prisma.refreshToken.findUnique({ where: { id: jti } });
+    expect(record?.revokedAt).not.toBeNull();
   });
 
   it('isola dados entre workspaces', async () => {
@@ -73,6 +153,40 @@ describe('API integration', () => {
 
     expect(taskRes.status).toBe(201);
     expect(taskRes.body.data.title).toBe('My Task');
+  });
+
+  it('pagina listagem de tarefas por cursor', async () => {
+    const user = await createUser('pager@example.com', 'Pager');
+    const workspace = await createWorkspaceWithOwner(user.id);
+    const project = await prisma.project.create({
+      data: { workspaceId: workspace.id, name: 'Paginated Project' },
+    });
+
+    for (let i = 1; i <= 3; i++) {
+      await prisma.task.create({
+        data: { projectId: project.id, title: `Task ${i}` },
+      });
+    }
+
+    const page1 = await request(app)
+      .get(`/api/projects/${project.id}/tasks?limit=2`)
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id));
+
+    expect(page1.status).toBe(200);
+    expect(page1.body.data.items).toHaveLength(2);
+    expect(page1.body.data.hasMore).toBe(true);
+    expect(page1.body.data.nextCursor).toBeTruthy();
+
+    const page2 = await request(app)
+      .get(`/api/projects/${project.id}/tasks?limit=2&cursor=${page1.body.data.nextCursor}`)
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id));
+
+    expect(page2.status).toBe(200);
+    expect(page2.body.data.items).toHaveLength(1);
+    expect(page2.body.data.hasMore).toBe(false);
+    expect(page2.body.data.nextCursor).toBeNull();
   });
 
   it('impede MEMBER de deletar projeto', async () => {
@@ -196,6 +310,17 @@ describe('API integration', () => {
     expect(res.status).toBe(200);
     expect(res.body.data.tasks.length).toBeGreaterThan(0);
     expect(res.body.data.tasks[0].title).toContain('gamma');
+
+    const fuzzyRes = await request(app)
+      .get(`/api/workspaces/${workspace.id}/search`)
+      .query({ q: 'gama' })
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id));
+
+    expect(fuzzyRes.status).toBe(200);
+    expect(fuzzyRes.body.data.tasks.some((t: { title: string }) => t.title.includes('gamma'))).toBe(
+      true
+    );
   });
 
   it('CRUD de subtarefas', async () => {
@@ -275,7 +400,7 @@ describe('API integration', () => {
     expect(patchRes.status).toBe(404);
   });
 
-  it('cascade: deletar task remove subtarefas', async () => {
+  it('soft delete: task deletada não aparece na listagem', async () => {
     const user = await createUser('cascade@example.com', 'Cascade User');
     const workspace = await createWorkspaceWithOwner(user.id);
     const project = await prisma.project.create({
@@ -288,13 +413,54 @@ describe('API integration', () => {
       data: { taskId: task.id, title: 'Item' },
     });
 
-    await request(app)
+    const deleteRes = await request(app)
       .delete(`/api/tasks/${task.id}`)
       .set(authHeader(user.id, user.email))
       .set('X-Workspace-Id', workspace.id);
 
-    const remaining = await prisma.subtask.findMany({ where: { taskId: task.id } });
-    expect(remaining).toHaveLength(0);
+    expect(deleteRes.status).toBe(200);
+
+    const listRes = await request(app)
+      .get(`/api/projects/${project.id}/tasks`)
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id));
+
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data.items).toHaveLength(0);
+
+    const deleted = await prisma.task.findUnique({ where: { id: task.id } });
+    expect(deleted?.deletedAt).not.toBeNull();
+  });
+
+  it('soft delete: projeto deletado some da listagem e leva tarefas junto', async () => {
+    const user = await createUser('softdel@example.com', 'Soft Delete');
+    const workspace = await createWorkspaceWithOwner(user.id);
+    const project = await prisma.project.create({
+      data: { workspaceId: workspace.id, name: 'To Delete' },
+    });
+    const task = await prisma.task.create({
+      data: { projectId: project.id, title: 'Orphan Task' },
+    });
+
+    const deleteRes = await request(app)
+      .delete(`/api/projects/${project.id}`)
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id));
+
+    expect(deleteRes.status).toBe(200);
+
+    const listRes = await request(app)
+      .get(`/api/workspaces/${workspace.id}/projects`)
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id));
+
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data.items).toHaveLength(0);
+
+    const deletedProject = await prisma.project.findUnique({ where: { id: project.id } });
+    const deletedTask = await prisma.task.findUnique({ where: { id: task.id } });
+    expect(deletedProject?.deletedAt).not.toBeNull();
+    expect(deletedTask?.deletedAt).not.toBeNull();
   });
 
   it('CRUD de tags e associação com tarefas', async () => {
@@ -361,5 +527,71 @@ describe('API integration', () => {
       .set(workspaceHeader(workspace.id));
 
     expect(deleteRes.status).toBe(200);
+  });
+
+  it('upload e download de anexos em tarefa', async () => {
+    const user = await createUser('attach@example.com', 'Attach User');
+    const workspace = await createWorkspaceWithOwner(user.id);
+    const project = await prisma.project.create({
+      data: { workspaceId: workspace.id, name: 'Attachments' },
+    });
+    const task = await prisma.task.create({
+      data: { projectId: project.id, title: 'Task with file' },
+    });
+
+    const uploadRes = await request(app)
+      .post(`/api/tasks/${task.id}/attachments`)
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id))
+      .attach('file', Buffer.from('hello attachment'), 'notes.txt');
+
+    expect(uploadRes.status).toBe(201);
+    expect(uploadRes.body.data.filename).toBe('notes.txt');
+    const attachmentId = uploadRes.body.data.id;
+
+    const listRes = await request(app)
+      .get(`/api/tasks/${task.id}/attachments`)
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id));
+
+    expect(listRes.status).toBe(200);
+    expect(listRes.body.data).toHaveLength(1);
+
+    const downloadRes = await request(app)
+      .get(`/api/tasks/${task.id}/attachments/${attachmentId}/download`)
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id));
+
+    expect(downloadRes.status).toBe(200);
+    expect(downloadRes.text).toBe('hello attachment');
+
+    const deleteRes = await request(app)
+      .delete(`/api/tasks/${task.id}/attachments/${attachmentId}`)
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id));
+
+    expect(deleteRes.status).toBe(200);
+  });
+
+  it('exporta tarefas do projeto em CSV', async () => {
+    const user = await createUser('export@example.com', 'Export User');
+    const workspace = await createWorkspaceWithOwner(user.id);
+    const project = await prisma.project.create({
+      data: { workspaceId: workspace.id, name: 'Export Project' },
+    });
+    await prisma.task.create({
+      data: { projectId: project.id, title: 'Exportable Task', status: 'TODO' },
+    });
+
+    const res = await request(app)
+      .get(`/api/projects/${project.id}/tasks/export`)
+      .query({ format: 'csv' })
+      .set(authHeader(user.id, user.email))
+      .set(workspaceHeader(workspace.id));
+
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toContain('text/csv');
+    expect(res.text).toContain('Exportable Task');
+    expect(res.text).toContain('A fazer');
   });
 });
